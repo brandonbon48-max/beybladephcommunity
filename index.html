@@ -992,7 +992,23 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
 <!-- Toast -->
 <div class="toast" id="toast">✓ <span id="toastMsg"></span></div>
 
-<script>
+<script type="module">
+// ── FIREBASE INIT ──
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, increment, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDh1VFGQ6CFQE6ygtlsiS4yKZbkmH502JU",
+  authDomain: "xtreme-unity.firebaseapp.com",
+  projectId: "xtreme-unity",
+  storageBucket: "xtreme-unity.firebasestorage.app",
+  messagingSenderId: "653421825157",
+  appId: "1:653421825157:web:b3b9beaa9cc298ffb2adec",
+  measurementId: "G-6QRN3MWLV7"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 // ── AUTH ──
 let currentUser = null, authMode = 'login', pendingAction = null;
 const USERS_KEY = 'xu_users', SESSION_KEY = 'xu_session';
@@ -1098,7 +1114,8 @@ const buildColors = {
   stamina:{bg:"rgba(0,230,118,.07)",accent:"#00e676"},
   balance:{bg:"rgba(255,184,0,.07)",accent:"#ffb800"},
 };
-let builds = [
+// Seed builds shown when Firestore is empty
+const seedBuilds = [
   {name:"Shadow Phoenix Assault",blade:"Shadow Phoenix",ratchet:"5-60",bit:"Flat",type:"attack",author:"BladerKen · RXS",votes:47,notes:"Great for counter-attack launches."},
   {name:"Cobalt Drake Wall",blade:"Cobalt Drake",ratchet:"4-80",bit:"Orb",type:"defense",author:"IronSpinner · Iloilo",votes:38,notes:"Near impossible to burst."},
   {name:"Dran Sword Marathon",blade:"Dran Sword",ratchet:"3-70",bit:"Point",type:"stamina",author:"RotaryKing · Manila",votes:55,notes:"Best stamina bey in X format right now."},
@@ -1106,8 +1123,7 @@ let builds = [
   {name:"Shark Edge Launcher",blade:"Shark Edge",ratchet:"5-80",bit:"Rush",type:"attack",author:"JawsBey · CDO",votes:42,notes:"Insane burst potential at high RPM."},
   {name:"Leon Claw Fortress",blade:"Leon Claw",ratchet:"4-70",bit:"Taper",type:"defense",author:"DefenseKing · Davao",votes:33,notes:"Low-angle launches abuse the defense ring."},
 ];
-let buildFilter='all', buildVoted=new Set();
-const discussions = [
+const seedDiscussions = [
   {title:"What's the current best Attack type in Beyblade X?",cat:"meta",author:"RotaryKing",community:"Manila BeyLeague",replies:24,views:310,time:"2h ago",pinned:true},
   {title:"Tips for launching in small arenas?",cat:"help",author:"NewBlader22",community:"Iloilo Bladers PH",replies:11,views:145,time:"5h ago",pinned:false},
   {title:"Recap: Roxas City Open January 2025 results!",cat:"events",author:"ModTeam",community:"Beyblade RXS",replies:8,views:220,time:"1d ago",pinned:false},
@@ -1116,7 +1132,9 @@ const discussions = [
   {title:"How do I find the correct Beyblade X parts for defense builds?",cat:"help",author:"BuildNewbie",community:"Davao Spin District",replies:18,views:190,time:"4d ago",pinned:false},
   {title:"Xtreme Unity community — introduce yourself!",cat:"general",author:"HubAdmin",community:"Xtreme Unity",replies:52,views:640,time:"5d ago",pinned:true},
 ];
-let discFilter='all';
+let builds = [], discussions = [];
+let buildFilter='all', discFilter='all';
+let buildVoted = new Set(JSON.parse(localStorage.getItem('xu_voted')||'[]'));
 
 // ── RENDER COMMUNITIES ──
 function renderCommunities() {
@@ -1182,9 +1200,9 @@ function filterEvents(f,btn) {
 // ── RENDER BUILDS ──
 function renderBuilds() {
   const filtered = buildFilter==='all'?builds:builds.filter(b=>b.type===buildFilter);
-  document.getElementById('buildsGrid').innerHTML = filtered.map((b,i)=>{
+  if(filtered.length===0){document.getElementById('buildsGrid').innerHTML='<p style="color:var(--muted);grid-column:1/-1;text-align:center;padding:40px 0;">No builds yet. Be the first to share one!</p>';return;}
+  document.getElementById('buildsGrid').innerHTML = filtered.map((b)=>{
     const bc=buildColors[b.type];
-    const actualIdx = buildFilter==='all'?i:builds.indexOf(b);
     return `<div class="build-card">
       <div class="build-vis" style="background:${bc.bg}">
         <div style="position:absolute;inset:0;background:radial-gradient(circle,${bc.accent}18,transparent 70%)"></div>
@@ -1204,7 +1222,7 @@ function renderBuilds() {
         </div>
         <div class="build-vote">
           <div class="vote-btns">
-            <button class="vote-btn ${buildVoted.has(actualIdx)?'voted':''}" onclick="vote(${actualIdx})">▲ ${b.votes}</button>
+            <button class="vote-btn ${buildVoted.has(b.id)?'voted':''}" onclick="vote('${b.id}')">▲ ${b.votes}</button>
           </div>
           <div class="vote-score">${b.votes}</div>
         </div>
@@ -1217,13 +1235,15 @@ function filterBuilds(f,btn) {
   document.querySelectorAll('#builds .tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active'); renderBuilds();
 }
-function vote(idx) {
+async function vote(id) {
   if(!currentUser){pendingAction=null;openAuthModal('login','🔒 Log in to vote on builds');return;}
-  if(buildVoted.has(idx)){showToast("Already voted on this build!");return;}
-  builds[idx].votes++;
-  buildVoted.add(idx);
-  renderBuilds();
-  showToast("Upvoted! 🔥");
+  if(buildVoted.has(id)){showToast("Already voted on this build!");return;}
+  try {
+    await updateDoc(doc(db,'builds',id), {votes: increment(1)});
+    buildVoted.add(id);
+    localStorage.setItem('xu_voted', JSON.stringify([...buildVoted]));
+    showToast("Upvoted! 🔥");
+  } catch(e){ showToast("Error voting, try again."); }
 }
 
 // ── RENDER DISCUSSIONS ──
@@ -1231,6 +1251,7 @@ const catColors={meta:'var(--accent)',help:'var(--accent3)',events:'var(--accent
 const catLabel={meta:'Meta Talk',help:'Help & Advice',events:'Events',general:'General'};
 function renderDisc() {
   const filtered=discFilter==='all'?discussions:discussions.filter(d=>d.cat===discFilter);
+  if(filtered.length===0){document.getElementById('discList').innerHTML='<p style="color:var(--muted);text-align:center;padding:40px 0;">No threads yet. Start the conversation!</p>';return;}
   document.getElementById('discList').innerHTML=filtered.map(d=>`
     <div class="thread-card">
       <div>
@@ -1239,7 +1260,7 @@ function renderDisc() {
         <div class="thread-meta">
           <span>👤 ${d.author}</span>
           <span>🌐 ${d.community}</span>
-          <span>🕐 ${d.time}</span>
+          <span>🕐 ${d.time||'Just now'}</span>
           <span>👁 ${d.views}</span>
         </div>
       </div>
@@ -1263,21 +1284,41 @@ function closeDiscModal(){document.getElementById('discModal').classList.remove(
 document.getElementById('buildModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeBuildModal();});
 document.getElementById('discModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeDiscModal();});
 
-function submitBuild() {
+async function submitBuild() {
   if(!currentUser){closeAuthModal();openAuthModal('login','🔒 Log in to share builds');return;}
   const name=document.getElementById('b-name').value.trim();
   if(!name){showToast("Please enter a build name!");return;}
-  builds.unshift({name,blade:document.getElementById('b-blade').value.trim()||'—',ratchet:document.getElementById('b-ratchet').value.trim()||'—',bit:document.getElementById('b-bit').value.trim()||'—',type:document.getElementById('b-type').value,author:currentUser.displayName||currentUser.username,votes:0,notes:document.getElementById('b-notes').value.trim()});
-  closeBuildModal();buildFilter='all';renderBuilds();showToast("Build posted! 🔥");
-  ['b-name','b-blade','b-ratchet','b-bit','b-notes'].forEach(id=>document.getElementById(id).value='');
+  const build = {
+    name, blade:document.getElementById('b-blade').value.trim()||'—',
+    ratchet:document.getElementById('b-ratchet').value.trim()||'—',
+    bit:document.getElementById('b-bit').value.trim()||'—',
+    type:document.getElementById('b-type').value,
+    author:currentUser.displayName||currentUser.username,
+    votes:0, notes:document.getElementById('b-notes').value.trim(),
+    createdAt: serverTimestamp()
+  };
+  try {
+    await addDoc(collection(db,'builds'), build);
+    closeBuildModal(); showToast("Build posted! 🔥");
+    ['b-name','b-blade','b-ratchet','b-bit','b-notes'].forEach(id=>document.getElementById(id).value='');
+  } catch(e){ showToast("Error posting build, try again."); }
 }
-function submitDisc() {
+async function submitDisc() {
   if(!currentUser){closeDiscModal();openAuthModal('login','🔒 Log in to start threads');return;}
   const title=document.getElementById('d-title').value.trim();
   if(!title){showToast("Please enter a thread title!");return;}
-  discussions.unshift({title,cat:document.getElementById('d-cat').value,author:currentUser.displayName||currentUser.username,community:'Xtreme Unity Member',replies:0,views:1,time:'Just now',pinned:false});
-  closeDiscModal();discFilter='all';renderDisc();showToast("Thread posted! 💬");
-  ['d-title','d-body'].forEach(id=>document.getElementById(id).value='');
+  const thread = {
+    title, cat:document.getElementById('d-cat').value,
+    author:currentUser.displayName||currentUser.username,
+    community:'Xtreme Unity Member',
+    replies:0, views:1, pinned:false,
+    createdAt: serverTimestamp()
+  };
+  try {
+    await addDoc(collection(db,'discussions'), thread);
+    closeDiscModal(); showToast("Thread posted! 💬");
+    ['d-title','d-body'].forEach(id=>document.getElementById(id).value='');
+  } catch(e){ showToast("Error posting thread, try again."); }
 }
 async function submitApp() {
   const name=document.getElementById('f-name').value.trim();
@@ -1338,14 +1379,62 @@ function animateCounter(el,end,dur=1400) {
 
 function toggleNav() { document.getElementById('navLinks').classList.toggle('open'); }
 
+// ── FIREBASE LOAD ──
+async function seedIfEmpty(collName, seedData) {
+  const snap = await getDocs(collection(db, collName));
+  if(snap.empty) {
+    for(const item of seedData) await addDoc(collection(db, collName), item);
+  }
+}
+
+function listenBuilds() {
+  const q = query(collection(db,'builds'), orderBy('votes','desc'));
+  onSnapshot(q, snap => {
+    builds = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderBuilds();
+  });
+}
+function listenDiscussions() {
+  const q = query(collection(db,'discussions'), orderBy('createdAt','desc'));
+  onSnapshot(q, snap => {
+    discussions = snap.docs.map(d=>{
+      const data = d.data();
+      const ts = data.createdAt?.toDate?.();
+      const time = ts ? timeAgo(ts) : 'Just now';
+      return {id:d.id,...data,time};
+    });
+    renderDisc();
+  });
+}
+function timeAgo(date) {
+  const s = Math.floor((Date.now()-date)/1000);
+  if(s<60) return 'Just now';
+  if(s<3600) return `${Math.floor(s/60)}m ago`;
+  if(s<86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+// ── EXPOSE GLOBALS (needed for onclick in HTML with type=module) ──
+Object.assign(window, {
+  toggleNav, openAuthModal, closeAuthModal, switchAuthTab, handleAuthSubmit, googleSignIn, logout,
+  authGatedAction, toggleUserMenu, filterEvents, filterBuilds, filterDisc,
+  vote, openBuildModal, closeBuildModal, openDiscModal, closeDiscModal,
+  submitBuild, submitDisc, submitApp
+});
+
 // ── INIT ──
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   initAuth();
   renderCommunities();
   renderTicker();
   renderEvents();
   renderBuilds();
   renderDisc();
+  // Seed Firestore with default data if empty, then listen for live updates
+  await seedIfEmpty('builds', seedBuilds);
+  await seedIfEmpty('discussions', seedDiscussions);
+  listenBuilds();
+  listenDiscussions();
   // counters
   const obs=new IntersectionObserver(entries=>{
     if(entries[0].isIntersecting){
