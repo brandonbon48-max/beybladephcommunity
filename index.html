@@ -1077,11 +1077,11 @@ function authGatedAction(action) {
 
 // ── DATA ──
 const communities = [
-  {name:"Beyblade RXS",location:"Roxas City, Capiz",desc:"The original Roxas City Beyblade community. Active tournaments and weekly casuals.",members:60,type:"Official",color:"#ff5c00",active:true},
-  {name:"Iloilo Bladers PH",location:"Iloilo City, Iloilo",desc:"Western Visayas' largest Beyblade hub. Multi-format events and open tournaments.",members:120,type:"Official",color:"#00cfff",active:true},
+  {name:"Beyblade RXS",location:"Roxas City, Capiz",desc:"The original Roxas City Beyblade community. Active tournaments and weekly casuals.",members:60,type:"Community",color:"#ff5c00",active:true},
+  {name:"Iloilo Bladers PH",location:"Iloilo City, Iloilo",desc:"Western Visayas' largest Beyblade hub. Multi-format events and open tournaments.",members:120,type:"Community",color:"#00cfff",active:true},
   {name:"Bacolod Spinners",location:"Bacolod City, Negros Occ.",desc:"Competitive scene from the City of Smiles. Known for attack-type specialists.",members:48,type:"Community",color:"#ffb800",active:true},
-  {name:"CDO BeyBattle",location:"Cagayan de Oro, Misamis Or.",desc:"Mindanao's go-to beyblade community. Regional events and national qualifiers.",members:85,type:"Official",color:"#ff2d55",active:true},
-  {name:"Manila BeyLeague",location:"Metro Manila, NCR",desc:"Capital region hub hosting major national tournaments and league play.",members:230,type:"Official",color:"#00e676",active:true},
+  {name:"CDO BeyBattle",location:"Cagayan de Oro, Misamis Or.",desc:"Mindanao's go-to beyblade community. Regional events and national qualifiers.",members:85,type:"Community",color:"#ff2d55",active:true},
+  {name:"Manila BeyLeague",location:"Metro Manila, NCR",desc:"Capital region hub hosting major national tournaments and league play.",members:230,type:"Community",color:"#00e676",active:true},
   {name:"Davao Spin District",location:"Davao City, Davao del Sur",desc:"Mindanao's southern community pushing the Beyblade X format hard.",members:67,type:"Community",color:"#bd5cff",active:true},
 ];
 const events = [
@@ -1279,14 +1279,43 @@ function submitDisc() {
   closeDiscModal();discFilter='all';renderDisc();showToast("Thread posted! 💬");
   ['d-title','d-body'].forEach(id=>document.getElementById(id).value='');
 }
-function submitApp() {
+async function submitApp() {
   const name=document.getElementById('f-name').value.trim();
+  const city=document.getElementById('f-city').value.trim();
+  const region=document.getElementById('f-region').value.trim();
   const contact=document.getElementById('f-contact').value.trim();
+  const social=document.getElementById('f-social').value.trim();
+  const size=document.getElementById('f-size').value;
+  const desc=document.getElementById('f-desc').value.trim();
   if(!name||!contact){showToast("Please fill in required fields.");return;}
-  document.getElementById('successMsg').style.display='block';
-  document.querySelector('.form-submit').disabled=true;
-  document.querySelector('.form-submit').textContent='Submitted ✓';
-  showToast("Application sent! ✅");
+  const btn=document.querySelector('.form-submit');
+  btn.disabled=true; btn.textContent='Sending...';
+  try {
+    const res = await fetch('https://formspree.io/f/xpqkkoae', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({
+        'Community Name':name,
+        'City / Province':city,
+        'Region':region,
+        'Contact Person':contact,
+        'Social Link':social,
+        'Community Size':size,
+        'Description':desc
+      })
+    });
+    if(res.ok){
+      document.getElementById('successMsg').style.display='block';
+      btn.textContent='Submitted ✓';
+      showToast("Application sent! ✅");
+    } else {
+      btn.disabled=false; btn.textContent='Submit Application →';
+      showToast("Something went wrong. Please try again.");
+    }
+  } catch(e){
+    btn.disabled=false; btn.textContent='Submit Application →';
+    showToast("Network error. Please try again.");
+  }
 }
 
 // ── TOAST ──
