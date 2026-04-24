@@ -996,32 +996,15 @@ const auth = getAuth(app);
 // ── AUTH STATE ──
 let currentUser = null, pendingAction = null;
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    const profileRef = doc(db, 'users', user.uid);
-    const profileSnap = await getDoc(profileRef);
-    if (!profileSnap.exists()) {
-      await setDoc(profileRef, {
-        displayName: user.displayName || 'Blader',
-        email: user.email || '',
-        photoURL: user.photoURL || '',
-        createdAt: serverTimestamp()
-      });
-    }
-    currentUser = { uid: user.uid, displayName: user.displayName || 'Blader', email: user.email, photoURL: user.photoURL };
-  } else { currentUser = null; }
-  renderNav();
-  if (pendingAction && currentUser) { const fn = pendingAction; pendingAction = null; fn(); }
-});
-
 function renderNav() {
   const el = document.getElementById('navAuth');
+  if (!el) return;
   if (currentUser) {
     const init = (currentUser.displayName||'BL').slice(0,2).toUpperCase();
     const avatar = currentUser.photoURL
       ? `<img src="${currentUser.photoURL}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">`
       : `<div class="nav-avatar">${init}</div>`;
-    el.innerHTML = `<div class="nav-user" id="navUserBtn" onclick="toggleUserMenu()">
+    el.innerHTML = `<div class="nav-user" id="navUserBtn" onclick="window.toggleUserMenu()">
       ${avatar}
       <span class="nav-username">${currentUser.displayName}</span>
       <span style="color:var(--muted);font-size:10px;">▾</span>
@@ -1029,31 +1012,58 @@ function renderNav() {
         <a href="#">My Profile</a>
         <a href="#builds">My Builds</a>
         <a href="#discussions">My Threads</a>
-        <button class="logout-btn" onclick="logout(event)">Log Out</button>
+        <button class="logout-btn" onclick="window.logout(event)">Log Out</button>
       </div>
     </div>`;
   } else {
-    el.innerHTML = `<button class="btn btn-outline" style="padding:8px 18px;font-size:12px;" onclick="openAuthModal()">Log In</button>`;
+    el.innerHTML = `<button class="btn btn-outline" style="padding:8px 18px;font-size:12px;" onclick="window.openAuthModal()">Log In</button>`;
   }
 }
 
-function toggleUserMenu() { document.getElementById('navUserBtn').classList.toggle('open'); }
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    try {
+      const profileRef = doc(db, 'users', user.uid);
+      const profileSnap = await getDoc(profileRef);
+      if (!profileSnap.exists()) {
+        await setDoc(profileRef, {
+          displayName: user.displayName || 'Blader',
+          email: user.email || '',
+          photoURL: user.photoURL || '',
+          createdAt: serverTimestamp()
+        });
+      }
+    } catch(e) { console.warn('Firestore profile error:', e); }
+    currentUser = { uid: user.uid, displayName: user.displayName || 'Blader', email: user.email, photoURL: user.photoURL };
+  } else {
+    currentUser = null;
+  }
+  renderNav();
+  if (pendingAction && currentUser) { const fn = pendingAction; pendingAction = null; fn(); }
+});
+
+function toggleUserMenu() {
+  const btn = document.getElementById('navUserBtn');
+  if(btn) btn.classList.toggle('open');
+}
 document.addEventListener('click', e => { const b = document.getElementById('navUserBtn'); if (b && !b.contains(e.target)) b.classList.remove('open'); });
 
 function openAuthModal(tab, reason='') {
-  if(reason) document.getElementById('authTagline').textContent = reason;
-  document.getElementById('authModal').classList.add('open');
-  document.body.style.overflow='hidden';
+  const modal = document.getElementById('authModal');
+  const tagline = document.getElementById('authTagline');
+  if(reason && tagline) tagline.textContent = reason;
+  if(modal) { modal.classList.add('open'); document.body.style.overflow='hidden'; }
 }
 function closeAuthModal() {
-  document.getElementById('authModal').classList.remove('open');
+  const modal = document.getElementById('authModal');
+  if(modal) modal.classList.remove('open');
   document.body.style.overflow='';
-  document.getElementById('authError').style.display='none';
+  const err = document.getElementById('authError');
+  if(err) err.style.display='none';
   pendingAction = null;
 }
-document.getElementById('authModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeAuthModal(); });
 
-function showAuthError(msg) { const el=document.getElementById('authError'); el.textContent=msg; el.style.display='block'; }
+function showAuthError(msg) { const el=document.getElementById('authError'); if(el){el.textContent=msg;el.style.display='block';} }
 
 async function googleSignIn() {
   try {
@@ -1418,6 +1428,8 @@ Object.assign(window, {
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
+  // Modal click-outside to close
+  document.getElementById('authModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeAuthModal(); });
   initAuth();
   renderCommunities();
   renderTicker();
