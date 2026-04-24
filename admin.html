@@ -953,7 +953,7 @@ function onCommLocationInput(val) {
     const coords = tryExtractCoordsFromUrl(val);
     if (coords) {
       fillCoords('comm', coords.lat, coords.lng);
-      document.getElementById('comm-gmaps').value = val;
+      document.getElementById('comm-gmaps').value = val; // always overwrite
       setLocationStatus('comm-location-status', `Coordinates extracted! (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, 'ok');
     }
   } else {
@@ -966,7 +966,7 @@ function onEvtLocationInput(val) {
     const coords = tryExtractCoordsFromUrl(val);
     if (coords) {
       fillCoords('evt', coords.lat, coords.lng);
-      document.getElementById('evt-gmaps').value = val;
+      document.getElementById('evt-gmaps').value = val; // always overwrite
       setLocationStatus('evt-location-status', `Coordinates extracted! (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, 'ok');
     }
   } else {
@@ -984,7 +984,7 @@ window.resolveCommLocation = async () => {
     const coords = tryExtractCoordsFromUrl(val);
     if (coords) {
       fillCoords('comm', coords.lat, coords.lng);
-      document.getElementById('comm-gmaps').value = val;
+      document.getElementById('comm-gmaps').value = val; // always overwrite with new link
       setLocationStatus('comm-location-status', `Found! (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, 'ok');
       return;
     }
@@ -997,10 +997,7 @@ window.resolveCommLocation = async () => {
     const result = await geocodePlaceName(val);
     if (result) {
       fillCoords('comm', result.lat, result.lng);
-      // Build a search URL from the place name
-      if (!document.getElementById('comm-gmaps').value) {
-        document.getElementById('comm-gmaps').value = `https://www.google.com/maps/search/${encodeURIComponent(val)}`;
-      }
+      document.getElementById('comm-gmaps').value = `https://www.google.com/maps/search/${encodeURIComponent(val)}`; // always overwrite
       setLocationStatus('comm-location-status', `Found: ${result.display.split(',').slice(0,3).join(',')}`, 'ok');
     } else {
       setLocationStatus('comm-location-status', 'Place not found. Try a more specific name.', 'error');
@@ -1030,9 +1027,7 @@ window.resolveEvtLocation = async () => {
     const result = await geocodePlaceName(val);
     if (result) {
       fillCoords('evt', result.lat, result.lng);
-      if (!document.getElementById('evt-gmaps').value) {
-        document.getElementById('evt-gmaps').value = `https://www.google.com/maps/search/${encodeURIComponent(val)}`;
-      }
+      document.getElementById('evt-gmaps').value = `https://www.google.com/maps/search/${encodeURIComponent(val)}`; // always overwrite
       setLocationStatus('evt-location-status', `Found: ${result.display.split(',').slice(0,3).join(',')}`, 'ok');
     } else {
       setLocationStatus('evt-location-status', 'Place not found. Try a more specific name.', 'error');
