@@ -957,11 +957,8 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
       XTREME <span>UNITY</span>
     </div>
     <p class="auth-tagline" id="authTagline">Sign in to join the community</p>
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Log In</button>
-      <button class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">Sign Up</button>
-    </div>
-    <button class="auth-google" onclick="googleSignIn()">
+    <div class="auth-error" id="authError"></div>
+    <button class="auth-google" onclick="googleSignIn()" style="margin-top:10px;">
       <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:18px;">
         <path fill="#4285F4" d="M46.145 24.503c0-1.6-.144-3.138-.413-4.617H24v8.738h12.445c-.537 2.908-2.17 5.373-4.62 7.027v5.838h7.477c4.374-4.029 6.843-9.967 6.843-16.986z"/>
         <path fill="#34A853" d="M24 47c6.237 0 11.468-2.068 15.291-5.611l-7.477-5.838c-2.069 1.387-4.716 2.206-7.814 2.206-6.012 0-11.101-4.06-12.922-9.516H3.435v6.033C7.238 41.912 15.016 47 24 47z"/>
@@ -970,22 +967,7 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
       </svg>
       Continue with Google
     </button>
-    <div class="auth-divider">or</div>
-    <div class="auth-error" id="authError"></div>
-    <div class="auth-form">
-      <div class="form-group" id="signupNameGroup" style="display:none;">
-        <label class="form-label">Display Name *</label>
-        <input type="text" class="form-input" id="auth-displayname" placeholder="Your BladerTag (e.g. RoxasKen)">
-      </div>
-      <div class="form-group"><label class="form-label">Username *</label><input type="text" class="form-input" id="auth-username" placeholder="username"></div>
-      <div class="form-group"><label class="form-label">Password *</label><input type="password" class="form-input" id="auth-password" placeholder="••••••••"></div>
-      <div class="form-group" id="confirmGroup" style="display:none;">
-        <label class="form-label">Confirm Password *</label>
-        <input type="password" class="form-input" id="auth-confirm" placeholder="••••••••">
-      </div>
-      <button class="auth-submit" id="authSubmitBtn" onclick="handleAuthSubmit()">Log In →</button>
-    </div>
-    <p class="auth-footer-note" id="authSwitchNote">Don't have an account? <a onclick="switchAuthTab('signup')">Sign up free</a></p>
+    <p class="auth-footer-note" style="margin-top:20px;text-align:center;color:var(--muted);font-size:11px;">By signing in you agree to our community rules.<br>One Google account = one Xtreme Unity account.</p>
   </div>
 </div>
 
@@ -995,7 +977,8 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
 <script type="module">
 // ── FIREBASE INIT ──
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, increment, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, increment, query, orderBy, onSnapshot, serverTimestamp, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDh1VFGQ6CFQE6ygtlsiS4yKZbkmH502JU",
@@ -1008,28 +991,44 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-// ── AUTH ──
-let currentUser = null, authMode = 'login', pendingAction = null;
-const USERS_KEY = 'xu_users', SESSION_KEY = 'xu_session';
-function getUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)||'{}'); } catch { return {}; } }
-function saveUsers(u) { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
-function saveSession(u) { localStorage.setItem(SESSION_KEY, JSON.stringify(u)); }
-function clearSession() { localStorage.removeItem(SESSION_KEY); }
-function loadSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
+// ── AUTH STATE ──
+let currentUser = null, pendingAction = null;
 
-function initAuth() { const s = loadSession(); if (s) { currentUser = s; } renderNav(); }
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    const profileRef = doc(db, 'users', user.uid);
+    const profileSnap = await getDoc(profileRef);
+    if (!profileSnap.exists()) {
+      await setDoc(profileRef, {
+        displayName: user.displayName || 'Blader',
+        email: user.email || '',
+        photoURL: user.photoURL || '',
+        createdAt: serverTimestamp()
+      });
+    }
+    currentUser = { uid: user.uid, displayName: user.displayName || 'Blader', email: user.email, photoURL: user.photoURL };
+  } else { currentUser = null; }
+  renderNav();
+  if (pendingAction && currentUser) { const fn = pendingAction; pendingAction = null; fn(); }
+});
 
 function renderNav() {
   const el = document.getElementById('navAuth');
   if (currentUser) {
-    const init = (currentUser.displayName||currentUser.username).slice(0,2).toUpperCase();
+    const init = (currentUser.displayName||'BL').slice(0,2).toUpperCase();
+    const avatar = currentUser.photoURL
+      ? `<img src="${currentUser.photoURL}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">`
+      : `<div class="nav-avatar">${init}</div>`;
     el.innerHTML = `<div class="nav-user" id="navUserBtn" onclick="toggleUserMenu()">
-      <div class="nav-avatar">${init}</div>
-      <span class="nav-username">${currentUser.displayName||currentUser.username}</span>
+      ${avatar}
+      <span class="nav-username">${currentUser.displayName}</span>
       <span style="color:var(--muted);font-size:10px;">▾</span>
       <div class="nav-dropdown" id="navDropdown">
-        <a href="#">My Profile</a><a href="#builds">My Builds</a><a href="#discussions">My Threads</a>
+        <a href="#">My Profile</a>
+        <a href="#builds">My Builds</a>
+        <a href="#discussions">My Threads</a>
         <button class="logout-btn" onclick="logout(event)">Log Out</button>
       </div>
     </div>`;
@@ -1037,59 +1036,54 @@ function renderNav() {
     el.innerHTML = `<button class="btn btn-outline" style="padding:8px 18px;font-size:12px;" onclick="openAuthModal()">Log In</button>`;
   }
 }
+
 function toggleUserMenu() { document.getElementById('navUserBtn').classList.toggle('open'); }
 document.addEventListener('click', e => { const b = document.getElementById('navUserBtn'); if (b && !b.contains(e.target)) b.classList.remove('open'); });
-function openAuthModal(tab='login', reason='') { switchAuthTab(tab); if(reason) document.getElementById('authTagline').textContent = reason; document.getElementById('authModal').classList.add('open'); document.body.style.overflow='hidden'; }
-function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); document.body.style.overflow=''; document.getElementById('authError').style.display='none'; pendingAction=null; }
-document.getElementById('authModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeAuthModal(); });
-function switchAuthTab(tab) {
-  authMode = tab;
-  document.getElementById('tabLogin').classList.toggle('active', tab==='login');
-  document.getElementById('tabSignup').classList.toggle('active', tab==='signup');
-  document.getElementById('signupNameGroup').style.display = tab==='signup'?'block':'none';
-  document.getElementById('confirmGroup').style.display = tab==='signup'?'block':'none';
-  document.getElementById('authSubmitBtn').textContent = tab==='login'?'Log In →':'Create Account →';
-  document.getElementById('authSwitchNote').innerHTML = tab==='login'
-    ? `Don't have an account? <a onclick="switchAuthTab('signup')">Sign up free</a>`
-    : `Already have an account? <a onclick="switchAuthTab('login')">Log in</a>`;
-  document.getElementById('authError').style.display='none';
+
+function openAuthModal(tab, reason='') {
+  if(reason) document.getElementById('authTagline').textContent = reason;
+  document.getElementById('authModal').classList.add('open');
+  document.body.style.overflow='hidden';
 }
+function closeAuthModal() {
+  document.getElementById('authModal').classList.remove('open');
+  document.body.style.overflow='';
+  document.getElementById('authError').style.display='none';
+  pendingAction = null;
+}
+document.getElementById('authModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeAuthModal(); });
+
 function showAuthError(msg) { const el=document.getElementById('authError'); el.textContent=msg; el.style.display='block'; }
-function handleAuthSubmit() {
-  const username = document.getElementById('auth-username').value.trim().toLowerCase();
-  const password = document.getElementById('auth-password').value;
-  if (!username||!password) { showAuthError('Please fill in all required fields.'); return; }
-  if (authMode==='login') {
-    const users=getUsers();
-    if (!users[username]) { showAuthError('Username not found.'); return; }
-    if (users[username].password!==btoa(password)) { showAuthError('Incorrect password.'); return; }
-    currentUser={username,displayName:users[username].displayName,type:'local'};
-    saveSession(currentUser); renderNav(); closeAuthModal();
-    showToast(`Welcome back, ${currentUser.displayName||currentUser.username}! 🔥`);
-    if(pendingAction){const fn=pendingAction;pendingAction=null;fn();}
-  } else {
-    const displayName=document.getElementById('auth-displayname').value.trim();
-    const confirm=document.getElementById('auth-confirm').value;
-    if(!displayName){showAuthError('Please enter a display name.');return;}
-    if(password!==confirm){showAuthError('Passwords do not match.');return;}
-    if(password.length<6){showAuthError('Password must be at least 6 characters.');return;}
-    if(!/^[a-z0-9_]{3,20}$/.test(username)){showAuthError('Username: 3-20 chars, letters/numbers/underscores only.');return;}
-    const users=getUsers();
-    if(users[username]){showAuthError('That username is already taken.');return;}
-    users[username]={password:btoa(password),displayName};
-    saveUsers(users);
-    currentUser={username,displayName,type:'local'};
-    saveSession(currentUser); renderNav(); closeAuthModal();
-    showToast(`Welcome to Xtreme Unity, ${displayName}! 🌀`);
-    if(pendingAction){const fn=pendingAction;pendingAction=null;fn();}
+
+async function googleSignIn() {
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    closeAuthModal();
+    showToast('Welcome to Xtreme Unity! 🔥');
+  } catch(e) {
+    if(e.code !== 'auth/popup-closed-by-user') showAuthError('Sign-in failed. Please try again.');
   }
 }
-function googleSignIn() { showToast('Connect Firebase SDK to enable Google sign-in.'); }
-function logout(e) { if(e)e.stopPropagation(); currentUser=null; clearSession(); renderNav(); showToast('Logged out. See you next time!'); }
-function authGatedAction(action) {
-  if(currentUser){if(action==='openBuildModal')openBuildModal();else openDiscModal();}
-  else{pendingAction=action==='openBuildModal'?openBuildModal:openDiscModal;openAuthModal('login','🔒 Log in to share builds & discussions');}
+
+async function logout(e) {
+  if(e) e.stopPropagation();
+  await signOut(auth);
+  showToast('Logged out. See you next time!');
 }
+
+function authGatedAction(action) {
+  if(currentUser){ if(action==='openBuildModal') openBuildModal(); else openDiscModal(); }
+  else { pendingAction = action==='openBuildModal' ? openBuildModal : openDiscModal; openAuthModal('login','🔒 Log in to share builds & discussions'); }
+}
+
+function switchAuthTab() {}
+function handleAuthSubmit() {}
+function initAuth() {}
+function skipPhone() {}
+function sendPhoneOTP() {}
+function verifyOTP() {}
+
 
 // ── DATA ──
 const communities = [
@@ -1419,7 +1413,7 @@ Object.assign(window, {
   toggleNav, openAuthModal, closeAuthModal, switchAuthTab, handleAuthSubmit, googleSignIn, logout,
   authGatedAction, toggleUserMenu, filterEvents, filterBuilds, filterDisc,
   vote, openBuildModal, closeBuildModal, openDiscModal, closeDiscModal,
-  submitBuild, submitDisc, submitApp
+  submitBuild, submitDisc, submitApp, sendPhoneOTP, verifyOTP, skipPhone
 });
 
 // ── INIT ──
