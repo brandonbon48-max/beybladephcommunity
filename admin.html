@@ -451,14 +451,15 @@ window.doGoogleLogin = async () => {
   err.style.display = 'none';
   try {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     const result = await signInWithPopup(auth, provider);
     if (!ALLOWED_EMAILS.includes(result.user.email)) {
       await signOut(auth);
-      err.textContent = '⛔ Access denied. This panel is restricted to the site admin only.';
+      err.textContent = '⛔ Access denied: ' + result.user.email + ' is not an admin account.';
       err.style.display = 'block';
     }
   } catch(e) {
-    err.textContent = 'Sign-in failed. Please try again.';
+    err.textContent = 'Error code: ' + (e.code || e.message);
     err.style.display = 'block';
   }
 };
