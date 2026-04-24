@@ -6,6 +6,7 @@
 <title>XTREME UNITY — Philippines Beyblade Community</title>
 <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root {
   --bg: #0a0a0f;
@@ -682,8 +683,7 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
   border: 1px solid var(--border);
   box-shadow: 0 24px 64px rgba(0,0,0,.5);
 }
-#xu-map { height: 520px; width: 100%; background: var(--surface); }
-@media (max-width: 768px) { #xu-map { height: 360px; } }
+#xu-map-overlay { flex: 1; width: 100%; min-height: 0; }
 .map-legend {
   display: flex; gap: 20px; flex-wrap: wrap;
   margin-top: 16px; padding: 0 4px;
@@ -705,6 +705,7 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
 .map-toggle-btn:hover { color: var(--text); border-color: var(--text); }
 .map-toggle-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 /* Leaflet dark overrides */
+#xu-map-overlay .leaflet-container,
 .leaflet-container { background: #0d0d16 !important; font-family: 'Barlow', sans-serif; }
 .leaflet-tile { filter: brightness(0.42) saturate(0.6) hue-rotate(195deg); }
 .leaflet-control-zoom a { background: var(--card) !important; color: var(--text) !important; border-color: var(--border) !important; }
@@ -725,6 +726,46 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
 .xu-popup-event-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(0,207,255,.1); border: 1px solid rgba(0,207,255,.2); border-radius: 20px; padding: 3px 10px; font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; color: var(--accent3); letter-spacing: 1px; }
 .xu-popup-date { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
 .xu-popup-format { font-size: 11px; color: var(--accent2); font-weight: 700; letter-spacing: 1px; margin-top: 4px; }
+/* ── MAP OVERLAY ── */
+#mapOverlay {
+  display: none; position: fixed; inset: 0; z-index: 4000;
+  background: var(--bg); flex-direction: column;
+}
+#mapOverlay.open { display: flex; }
+.map-overlay-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; height: 64px; flex-shrink: 0;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  gap: 16px;
+}
+.map-overlay-title {
+  font-family: 'Black Ops One', cursive; font-size: 18px; letter-spacing: 2px;
+  display: flex; align-items: center; gap: 10px;
+}
+.map-overlay-title span { color: var(--accent); }
+.map-overlay-controls {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.map-close-btn {
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--muted); width: 34px; height: 34px; border-radius: 7px;
+  cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: color .2s, border-color .2s; flex-shrink: 0;
+}
+.map-close-btn:hover { color: var(--text); border-color: var(--accent); }
+#xu-map-overlay {
+  flex: 1; width: 100%;
+}
+.map-overlay-footer {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  padding: 10px 24px; background: var(--surface); border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .map-overlay-header { padding: 0 14px; }
+  .map-overlay-title { font-size: 14px; }
+  .map-overlay-footer { padding: 8px 14px; gap: 12px; }
+}
 </style>
 </head>
 <body>
@@ -738,10 +779,10 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
 
   <div class="nav-links" id="navLinks">
     <a href="#communities">Communities</a>
-    <a href="#mapSection">Map</a>
     <a href="#events">Events</a>
     <a href="#builds">Builds</a>
     <a href="#discussions">Discussions</a>
+    <a href="#" onclick="openMapOverlay();return false;">🗺️ Map</a>
     <a href="#contact" class="nav-cta">Add Your Community</a>
   </div>
   <div class="nav-auth" id="navAuth"></div>
@@ -810,32 +851,6 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
       <a href="#contact" class="btn btn-outline">Request to Join</a>
     </div>
     <div class="communities-grid" id="commGrid"></div>
-  </div>
-</div>
-
-<!-- ══════════════════════ MAP ══════════════════════ -->
-<div id="mapSection">
-  <div class="section" style="max-width:1200px;margin:0 auto;padding:80px 24px;">
-    <div class="section-head flex-between" style="margin-bottom:28px;">
-      <div>
-        <div class="section-label">🗺️ Philippines</div>
-        <h2 class="section-title">Community <span>Map</span></h2>
-        <p class="section-desc">Find Beyblade communities and upcoming events across the archipelago.</p>
-      </div>
-    </div>
-    <div class="map-layer-toggles">
-      <button class="map-toggle-btn active" id="toggleComm" onclick="toggleLayer('communities')">📍 Communities</button>
-      <button class="map-toggle-btn active" id="toggleEvt" onclick="toggleLayer('events')" style="background:var(--accent3);border-color:var(--accent3);color:#000;">🏆 Events</button>
-    </div>
-    <div class="map-wrap">
-      <div id="xu-map"></div>
-    </div>
-    <div class="map-legend">
-      <div class="map-legend-item"><div class="map-legend-dot" style="background:#ff5c00;box-shadow:0 0 6px #ff5c00;"></div> Community Hub</div>
-      <div class="map-legend-item"><div class="map-legend-dot" style="background:#00cfff;box-shadow:0 0 6px #00cfff;"></div> Tournament</div>
-      <div class="map-legend-item"><div class="map-legend-dot" style="background:#00e676;box-shadow:0 0 6px #00e676;"></div> Casual / Meetup</div>
-      <div class="map-legend-item"><div class="map-legend-dot" style="background:#ffb800;box-shadow:0 0 6px #ffb800;"></div> Launch Event</div>
-    </div>
   </div>
 </div>
 
@@ -960,10 +975,10 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
     <div class="footer-col">
       <h4>Navigate</h4>
       <a href="#communities">Communities</a>
-      <a href="#mapSection">Community Map</a>
       <a href="#events">Events</a>
       <a href="#builds">Builds</a>
       <a href="#discussions">Discussions</a>
+      <a href="#" onclick="openMapOverlay();return false;">Community Map</a>
     </div>
     <div class="footer-col">
       <h4>Community</h4>
@@ -1057,6 +1072,28 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
   <div class="auth-modal" style="max-width:480px;max-height:80vh;overflow-y:auto;">
     <button class="auth-close" onclick="closeProfileModal()">✕</button>
     <div id="profileContent"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════ MAP OVERLAY ══════════════════════ -->
+<div id="mapOverlay">
+  <div class="map-overlay-header">
+    <div class="map-overlay-title">
+      🗺️ XTREME <span>UNITY</span> — Community Map
+    </div>
+    <div class="map-overlay-controls">
+      <button class="map-toggle-btn active" id="toggleComm" onclick="toggleLayer('communities')" style="background:var(--accent);border-color:var(--accent);color:#fff;">📍 Communities</button>
+      <button class="map-toggle-btn active" id="toggleEvt" onclick="toggleLayer('events')" style="background:var(--accent3);border-color:var(--accent3);color:#000;">🏆 Events</button>
+      <button class="map-close-btn" onclick="closeMapOverlay()" title="Close map">✕</button>
+    </div>
+  </div>
+  <div id="xu-map-overlay"></div>
+  <div class="map-overlay-footer">
+    <div class="map-legend-item"><div class="map-legend-dot" style="background:#ff5c00;box-shadow:0 0 6px #ff5c00;"></div> Community Hub</div>
+    <div class="map-legend-item"><div class="map-legend-dot" style="background:#00cfff;box-shadow:0 0 6px #00cfff;"></div> Tournament</div>
+    <div class="map-legend-item"><div class="map-legend-dot" style="background:#00e676;box-shadow:0 0 6px #00e676;"></div> Casual / Meetup</div>
+    <div class="map-legend-item"><div class="map-legend-dot" style="background:#ffb800;box-shadow:0 0 6px #ffb800;"></div> Launch Event</div>
+    <span style="margin-left:auto;font-size:11px;color:var(--muted);font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">Press ESC to close</span>
   </div>
 </div>
 
@@ -1401,7 +1438,11 @@ let buildVoted = new Set(JSON.parse(localStorage.getItem('xu_voted')||'[]'));
 
 // ── RENDER COMMUNITIES ──
 function renderCommunities() {
-  document.getElementById('commGrid').innerHTML = communities.map((c,i)=>`
+  const pins = window._xuCommPins || [];
+  document.getElementById('commGrid').innerHTML = communities.map((c,i)=>{
+    const pin = pins.find(p=>p.name===c.name);
+    const gmaps = pin ? pin.gmaps : `https://www.google.com/maps/search/${encodeURIComponent(c.location+' Philippines')}`;
+    return `
     <div class="community-card" style="animation:fadeUp .5s ${i*.07}s both">
       <div class="comm-banner">
         <div class="comm-banner-bg" style="background:linear-gradient(135deg,${c.color}20,${c.color}44)"></div>
@@ -1409,14 +1450,17 @@ function renderCommunities() {
       </div>
       <div class="comm-body">
         <div class="comm-name">${c.name}</div>
-        <div class="comm-location">📍 ${c.location}</div>
+        <a href="${gmaps}" target="_blank" rel="noopener" class="comm-location" style="text-decoration:none;color:var(--muted);transition:color .2s;" onmouseover="this.style.color='#ff5c00'" onmouseout="this.style.color='var(--muted)'">
+          📍 <span style="border-bottom:1px dashed rgba(255,92,0,0.4);">${c.location}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.6;flex-shrink:0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
         <div class="comm-desc">${c.desc}</div>
         <div class="comm-footer">
           <span>👥 ${c.members} members</span>
           <span style="width:7px;height:7px;border-radius:50%;background:${c.active?'var(--green)':'var(--muted)'};display:inline-block"></span>
         </div>
       </div>
-    </div>`).join('');
+    </div>`}).join('');
 }
 
 // ── TICKER ──
@@ -1431,7 +1475,11 @@ function renderEvents() {
   const filtered = eventFilter==='all'?events:events.filter(e=>e.type===eventFilter);
   const tl={tournament:'🏆 Tournament',casual:'🎮 Casual',launch:'🚀 Launch Event'};
   const tc={tournament:'badge-red',casual:'badge-blue',launch:'badge-yellow'};
-  document.getElementById('eventsGrid').innerHTML = filtered.map(e=>`
+  const pins = window._xuEventPins || [];
+  document.getElementById('eventsGrid').innerHTML = filtered.map(e=>{
+    const pin = pins.find(p=>p.name===e.name);
+    const gmaps = pin ? pin.gmaps : `https://www.google.com/maps/search/${encodeURIComponent(e.location+' Philippines')}`;
+    return `
     <div class="event-card">
       <div class="event-header">
         <div>
@@ -1444,15 +1492,20 @@ function renderEvents() {
         </div>
       </div>
       <div class="event-body"><div class="event-info">
-        <div class="event-info-row">📍 ${e.location}</div>
+        <div class="event-info-row">
+          <a href="${gmaps}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;transition:color .2s;" onmouseover="this.style.color='#ff5c00'" onmouseout="this.style.color='var(--muted)'">
+            📍 <span style="border-bottom:1px dashed rgba(255,92,0,0.35);">${e.location}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5;flex-shrink:0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+        </div>
         <div class="event-info-row">⚙️ Format: ${e.format}</div>
         <div class="event-info-row">🏅 ${e.prize}</div>
       </div></div>
       <div class="event-footer">
         <div class="event-host">By: <strong>${e.community}</strong></div>
-        <a href="#contact" class="btn-sm">Info</a>
+        <a href="${gmaps}" target="_blank" rel="noopener" class="btn-sm" style="display:flex;align-items:center;gap:5px;">🗺️ Directions</a>
       </div>
-    </div>`).join('');
+    </div>`}).join('');
 }
 function filterEvents(f,btn) {
   eventFilter=f;
@@ -1729,108 +1782,139 @@ document.addEventListener('DOMContentLoaded', async () => {
   obs.observe(document.querySelector('.hero-stats'));
 });
 </script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── MAP INIT ──
+// ── MAP SECTION INIT ──
 (function() {
-  // Community pin data with coordinates
+  let mapInstance = null;
+  let commLayer, evtLayer;
+  let commVisible = true, evtVisible = true;
+
   const commPins = [
-    {name:"Beyblade RXS",location:"Roxas City, Capiz",desc:"The original Roxas City Beyblade community. Active tournaments and weekly casuals.",members:60,color:"#ff5c00",lat:11.5854,lng:122.7511},
-    {name:"Iloilo Bladers PH",location:"Iloilo City, Iloilo",desc:"Western Visayas' largest Beyblade hub. Multi-format events and open tournaments.",members:120,color:"#00cfff",lat:10.7202,lng:122.5621},
-    {name:"Bacolod Spinners",location:"Bacolod City, Negros Occ.",desc:"Competitive scene from the City of Smiles. Known for attack-type specialists.",members:48,color:"#ffb800",lat:10.6713,lng:122.9511},
-    {name:"CDO BeyBattle",location:"Cagayan de Oro, Misamis Or.",desc:"Mindanao's go-to beyblade community. Regional events and national qualifiers.",members:85,color:"#ff2d55",lat:8.4542,lng:124.6319},
-    {name:"Manila BeyLeague",location:"Metro Manila, NCR",desc:"Capital region hub hosting major national tournaments and league play.",members:230,color:"#00e676",lat:14.5995,lng:120.9842},
-    {name:"Davao Spin District",location:"Davao City, Davao del Sur",desc:"Mindanao's southern community pushing the Beyblade X format hard.",members:67,color:"#bd5cff",lat:7.1907,lng:125.4553},
+    {name:"Beyblade RXS",location:"Roxas City, Capiz",desc:"The original Roxas City Beyblade community. Active tournaments and weekly casuals.",members:60,color:"#ff5c00",lat:11.5854,lng:122.7511,gmaps:"https://www.google.com/maps/search/Roxas+City+Sports+Complex+Roxas+City+Capiz+Philippines"},
+    {name:"Iloilo Bladers PH",location:"Iloilo City, Iloilo",desc:"Western Visayas' largest Beyblade hub. Multi-format events and open tournaments.",members:120,color:"#00cfff",lat:10.7202,lng:122.5621,gmaps:"https://www.google.com/maps/search/Iloilo+City+Philippines"},
+    {name:"Bacolod Spinners",location:"Bacolod City, Negros Occ.",desc:"Competitive scene from the City of Smiles. Known for attack-type specialists.",members:48,color:"#ffb800",lat:10.6713,lng:122.9511,gmaps:"https://www.google.com/maps/search/Bacolod+City+Negros+Occidental+Philippines"},
+    {name:"CDO BeyBattle",location:"Cagayan de Oro, Misamis Or.",desc:"Mindanao's go-to beyblade community. Regional events and national qualifiers.",members:85,color:"#ff2d55",lat:8.4542,lng:124.6319,gmaps:"https://www.google.com/maps/search/Cagayan+de+Oro+Misamis+Oriental+Philippines"},
+    {name:"Manila BeyLeague",location:"Metro Manila, NCR",desc:"Capital region hub hosting major national tournaments and league play.",members:230,color:"#00e676",lat:14.5995,lng:120.9842,gmaps:"https://www.google.com/maps/search/SM+Mall+of+Asia+Arena+Manila+Philippines"},
+    {name:"Davao Spin District",location:"Davao City, Davao del Sur",desc:"Mindanao's southern community pushing the Beyblade X format hard.",members:67,color:"#bd5cff",lat:7.1907,lng:125.4553,gmaps:"https://www.google.com/maps/search/Davao+City+Philippines"},
   ];
 
-  // Event pin data with coordinates
   const eventPins = [
-    {name:"BeyBattle Open 2025 Roxas",location:"Roxas City Sports Complex",community:"Beyblade RXS",format:"Beyblade X",prize:"₱3,000 + Trophy",day:"18",month:"Jan",type:"tournament",lat:11.5870,lng:122.7495},
-    {name:"Iloilo Casuals #12",location:"SM City Iloilo Event Area",community:"Iloilo Bladers PH",format:"Open Format",prize:"Prizes TBA",day:"25",month:"Jan",type:"casual",lat:10.7150,lng:122.5490},
-    {name:"Bacolod City Championship",location:"Lacson Street Venue",community:"Bacolod Spinners",format:"Beyblade X",prize:"₱5,000 + Trophies",day:"01",month:"Feb",type:"tournament",lat:10.6740,lng:122.9560},
-    {name:"CDO Regional Qualifier",location:"Centrio Mall Atrium",community:"CDO BeyBattle",format:"Beyblade X",prize:"National Qualification",day:"08",month:"Feb",type:"tournament",lat:8.4600,lng:124.6370},
-    {name:"Manila BeyLeague Season 3 Kickoff",location:"SM Mall of Asia Arena Grounds",community:"Manila BeyLeague",format:"League Format",prize:"₱15,000 Prize Pool",day:"15",month:"Feb",type:"launch",lat:14.5350,lng:120.9830},
-    {name:"Davao Spin Open Vol. 3",location:"Abreeza Ayala Mall Event Space",community:"Davao Spin District",format:"Mixed Format",prize:"₱4,000 + Merch",day:"22",month:"Feb",type:"tournament",lat:7.2050,lng:125.4610},
+    {name:"BeyBattle Open 2025 Roxas",location:"Roxas City Sports Complex",community:"Beyblade RXS",format:"Beyblade X",prize:"₱3,000 + Trophy",day:"18",month:"Jan",type:"tournament",lat:11.5870,lng:122.7495,gmaps:"https://www.google.com/maps/search/Roxas+City+Sports+Complex+Roxas+City+Capiz+Philippines"},
+    {name:"Iloilo Casuals #12",location:"SM City Iloilo Event Area",community:"Iloilo Bladers PH",format:"Open Format",prize:"Prizes TBA",day:"25",month:"Jan",type:"casual",lat:10.7150,lng:122.5490,gmaps:"https://www.google.com/maps/search/SM+City+Iloilo+Mandurriao+Iloilo+Philippines"},
+    {name:"Bacolod City Championship",location:"Lacson Street Venue",community:"Bacolod Spinners",format:"Beyblade X",prize:"₱5,000 + Trophies",day:"01",month:"Feb",type:"tournament",lat:10.6740,lng:122.9560,gmaps:"https://www.google.com/maps/search/Lacson+Street+Bacolod+City+Philippines"},
+    {name:"CDO Regional Qualifier",location:"Centrio Mall Atrium",community:"CDO BeyBattle",format:"Beyblade X",prize:"National Qualification",day:"08",month:"Feb",type:"tournament",lat:8.4600,lng:124.6370,gmaps:"https://www.google.com/maps/search/Centrio+Ayala+Mall+Cagayan+de+Oro+Philippines"},
+    {name:"Manila BeyLeague Season 3 Kickoff",location:"SM Mall of Asia Arena Grounds",community:"Manila BeyLeague",format:"League Format",prize:"₱15,000 Prize Pool",day:"15",month:"Feb",type:"launch",lat:14.5350,lng:120.9830,gmaps:"https://www.google.com/maps/search/SM+Mall+of+Asia+Arena+Pasay+Philippines"},
+    {name:"Davao Spin Open Vol. 3",location:"Abreeza Ayala Mall Event Space",community:"Davao Spin District",format:"Mixed Format",prize:"₱4,000 + Merch",day:"22",month:"Feb",type:"tournament",lat:7.2050,lng:125.4610,gmaps:"https://www.google.com/maps/search/Abreeza+Ayala+Mall+Davao+City+Philippines"},
   ];
+
+  window._xuCommPins = commPins;
+  window._xuEventPins = eventPins;
 
   const eventTypeColor = {tournament:'#00cfff', casual:'#00e676', launch:'#ffb800'};
-  const eventTypeLabel = {tournament:'🏆 Tournament', casual:'🎮 Casual', launch:'🚀 Launch Event'};
+  const eventTypeLabel  = {tournament:'🏆 Tournament', casual:'🎮 Casual', launch:'🚀 Launch Event'};
+
+  function gMapsBtn(url, label) {
+    return `<a href="${url}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;padding:9px 14px;border-radius:8px;background:rgba(255,92,0,0.12);border:1px solid rgba(255,92,0,0.35);color:#ff5c00;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;width:100%;" onmouseover="this.style.background='rgba(255,92,0,0.25)'" onmouseout="this.style.background='rgba(255,92,0,0.12)'">
+      <svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#ff5c00' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'/><circle cx='12' cy='10' r='3'/></svg>
+      ${label}
+    </a>`;
+  }
 
   function makeSvgIcon(color, size=22, ring=true) {
     const s = size;
     const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${s+12}' height='${s+16}' viewBox='0 0 ${s+12} ${s+16}'>
-      ${ring ? `<circle cx='${(s+12)/2}' cy='${(s+12)/2}' r='${s/2+5}' fill='${color}' opacity='0.18'/>` : ''}
+      ${ring?`<circle cx='${(s+12)/2}' cy='${(s+12)/2}' r='${s/2+5}' fill='${color}' opacity='0.18'/>`:''}
       <circle cx='${(s+12)/2}' cy='${(s+12)/2}' r='${s/2}' fill='${color}' stroke='#fff' stroke-width='2'/>
       <circle cx='${(s+12)/2}' cy='${(s+12)/2}' r='${s/2-4}' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='1'/>
       <line x1='${(s+12)/2}' y1='${s+6}' x2='${(s+12)/2}' y2='${s+15}' stroke='${color}' stroke-width='2' stroke-linecap='round'/>
     </svg>`;
-    return L.divIcon({
-      html: svg, className: '', iconSize: [s+12, s+16],
-      iconAnchor: [(s+12)/2, s+15], popupAnchor: [0, -(s+12)]
-    });
+    return L.divIcon({ html:svg, className:'', iconSize:[s+12,s+16], iconAnchor:[(s+12)/2,s+15], popupAnchor:[0,-(s+12)] });
   }
 
-  // Init map centered on Philippines
-  const map = L.map('xu-map', {
-    center: [12.0, 122.5], zoom: 6,
-    zoomControl: true, attributionControl: true
-  });
+  function initMap() {
+    if (mapInstance) return; // already initialised
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
-    maxZoom: 18
-  }).addTo(map);
+    mapInstance = L.map('xu-map-overlay', { center:[12.0,122.5], zoom:6, zoomControl:true, attributionControl:true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a>', maxZoom:18
+    }).addTo(mapInstance);
 
-  // Community markers
-  const commLayer = L.layerGroup();
-  commPins.forEach(c => {
-    const marker = L.marker([c.lat, c.lng], {icon: makeSvgIcon(c.color, 22)});
-    marker.bindPopup(`
-      <div class="xu-popup-name">${c.name}</div>
-      <div class="xu-popup-loc">📍 ${c.location}</div>
-      <div class="xu-popup-desc">${c.desc}</div>
-      <span class="xu-popup-stat">👥 ${c.members} members</span>
-    `);
-    commLayer.addLayer(marker);
-  });
+    commLayer = L.layerGroup();
+    commPins.forEach(c => {
+      const m = L.marker([c.lat,c.lng], {icon:makeSvgIcon(c.color,24)});
+      m.bindPopup(`<div style="min-width:210px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0;box-shadow:0 0 6px ${c.color};"></div>
+          <div class="xu-popup-name" style="margin:0;">${c.name}</div>
+        </div>
+        <div class="xu-popup-loc" style="margin-bottom:8px;">📍 ${c.location}</div>
+        <div class="xu-popup-desc">${c.desc}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.07);">
+          <span class="xu-popup-stat">👥 ${c.members} members</span>
+          <span style="width:7px;height:7px;border-radius:50%;background:#00e676;display:inline-block;box-shadow:0 0 5px #00e676;"></span>
+        </div>
+        ${gMapsBtn(c.gmaps,'📍 Get Directions')}
+      </div>`, {maxWidth:270});
+      commLayer.addLayer(m);
+    });
 
-  // Event markers
-  const evtLayer = L.layerGroup();
-  eventPins.forEach(e => {
-    const color = eventTypeColor[e.type] || '#fff';
-    const marker = L.marker([e.lat, e.lng], {icon: makeSvgIcon(color, 18, false)});
-    marker.bindPopup(`
-      <div class="xu-popup-name">${e.name}</div>
-      <div class="xu-popup-loc">📍 ${e.location}</div>
-      <div class="xu-popup-date">📅 ${e.day} ${e.month} · ${e.community}</div>
-      <div class="xu-popup-format">⚙️ ${e.format}</div>
-      <div style="margin-top:8px;"><span class="xu-popup-event-badge">${eventTypeLabel[e.type]}</span></div>
-      <div style="margin-top:7px;font-size:12px;color:#ffb800;font-weight:700;">🏅 ${e.prize}</div>
-    `);
-    evtLayer.addLayer(marker);
-  });
+    evtLayer = L.layerGroup();
+    eventPins.forEach(e => {
+      const color = eventTypeColor[e.type]||'#fff';
+      const m = L.marker([e.lat,e.lng], {icon:makeSvgIcon(color,18,false)});
+      m.bindPopup(`<div style="min-width:210px;">
+        <div style="margin-bottom:6px;">
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;background:${color}20;border:1px solid ${color}50;color:${color};">${eventTypeLabel[e.type]}</span>
+        </div>
+        <div class="xu-popup-name">${e.name}</div>
+        <div style="margin:8px 0;padding:8px 0;border-top:1px solid rgba(255,255,255,0.07);border-bottom:1px solid rgba(255,255,255,0.07);">
+          <div class="xu-popup-date" style="margin-bottom:4px;">📅 ${e.day} ${e.month} · <strong style="color:#f0eee8;">${e.community}</strong></div>
+          <div style="font-size:12px;color:#888899;margin-bottom:3px;">⚙️ ${e.format}</div>
+          <div style="font-size:12px;color:#ffb800;font-weight:700;">🏅 ${e.prize}</div>
+        </div>
+        <div class="xu-popup-loc" style="font-size:12px;margin-bottom:2px;">📍 ${e.location}</div>
+        ${gMapsBtn(e.gmaps,'🗺️ Get Directions')}
+      </div>`, {maxWidth:270});
+      evtLayer.addLayer(m);
+    });
 
-  commLayer.addTo(map);
-  evtLayer.addTo(map);
+    commLayer.addTo(mapInstance);
+    evtLayer.addTo(mapInstance);
+  }
 
-  let commVisible = true, evtVisible = true;
+  window.openMapOverlay = function() {
+    const overlay = document.getElementById('mapOverlay');
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    // close mobile nav if open
+    const navLinks = document.getElementById('navLinks');
+    if (navLinks) navLinks.classList.remove('open');
+    // init map on first open, then invalidate size
+    setTimeout(() => { initMap(); if(mapInstance) mapInstance.invalidateSize(); }, 80);
+  };
+
+  window.closeMapOverlay = function() {
+    document.getElementById('mapOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  // ESC key closes overlay
+  document.addEventListener('keydown', e => { if(e.key==='Escape') window.closeMapOverlay(); });
 
   window.toggleLayer = function(which) {
+    if (!mapInstance) return;
     if (which === 'communities') {
       commVisible = !commVisible;
       const btn = document.getElementById('toggleComm');
-      if (commVisible) { commLayer.addTo(map); btn.style.background='var(--accent)'; btn.style.borderColor='var(--accent)'; btn.style.color='#fff'; }
-      else { map.removeLayer(commLayer); btn.style.background='transparent'; btn.style.borderColor='var(--border)'; btn.style.color='var(--muted)'; }
+      if (commVisible) { commLayer.addTo(mapInstance); btn.style.cssText='background:var(--accent);border-color:var(--accent);color:#fff;'; }
+      else { mapInstance.removeLayer(commLayer); btn.style.cssText='background:transparent;border-color:var(--border);color:var(--muted);'; }
     } else {
       evtVisible = !evtVisible;
       const btn = document.getElementById('toggleEvt');
-      if (evtVisible) { evtLayer.addTo(map); btn.style.background='var(--accent3)'; btn.style.borderColor='var(--accent3)'; btn.style.color='#000'; }
-      else { map.removeLayer(evtLayer); btn.style.background='transparent'; btn.style.borderColor='var(--border)'; btn.style.color='var(--muted)'; }
+      if (evtVisible) { evtLayer.addTo(mapInstance); btn.style.cssText='background:var(--accent3);border-color:var(--accent3);color:#000;'; }
+      else { mapInstance.removeLayer(evtLayer); btn.style.cssText='background:transparent;border-color:var(--border);color:var(--muted);'; }
     }
   };
-
-  // Invalidate map size after page settles (fixes partial render)
-  setTimeout(() => map.invalidateSize(), 400);
 })();
 </script>
 
