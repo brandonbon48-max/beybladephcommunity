@@ -1391,23 +1391,9 @@ function viewMyThreads() {
 }
 
 
-// ── DATA ──
-const communities = [
-  {name:"Beyblade RXS",location:"Roxas City, Capiz",desc:"The original Roxas City Beyblade community. Active tournaments and weekly casuals.",members:60,type:"Community",color:"#ff5c00",active:true},
-  {name:"Iloilo Bladers PH",location:"Iloilo City, Iloilo",desc:"Western Visayas' largest Beyblade hub. Multi-format events and open tournaments.",members:120,type:"Community",color:"#00cfff",active:true},
-  {name:"Bacolod Spinners",location:"Bacolod City, Negros Occ.",desc:"Competitive scene from the City of Smiles. Known for attack-type specialists.",members:48,type:"Community",color:"#ffb800",active:true},
-  {name:"CDO BeyBattle",location:"Cagayan de Oro, Misamis Or.",desc:"Mindanao's go-to beyblade community. Regional events and national qualifiers.",members:85,type:"Community",color:"#ff2d55",active:true},
-  {name:"Manila BeyLeague",location:"Metro Manila, NCR",desc:"Capital region hub hosting major national tournaments and league play.",members:230,type:"Community",color:"#00e676",active:true},
-  {name:"Davao Spin District",location:"Davao City, Davao del Sur",desc:"Mindanao's southern community pushing the Beyblade X format hard.",members:67,type:"Community",color:"#bd5cff",active:true},
-];
-const events = [
-  {day:"18",month:"Jan",name:"BeyBattle Open 2025 Roxas",type:"tournament",community:"Beyblade RXS",location:"Roxas City Sports Complex",format:"Beyblade X",prize:"₱3,000 + Trophy",color:"#ff5c00"},
-  {day:"25",month:"Jan",name:"Iloilo Casuals #12",type:"casual",community:"Iloilo Bladers PH",location:"SM City Iloilo Event Area",format:"Open Format",prize:"Prizes TBA",color:"#00cfff"},
-  {day:"01",month:"Feb",name:"Bacolod City Championship",type:"tournament",community:"Bacolod Spinners",location:"Lacson Street Venue",format:"Beyblade X",prize:"₱5,000 + Trophies",color:"#ffb800"},
-  {day:"08",month:"Feb",name:"CDO Regional Qualifier",type:"tournament",community:"CDO BeyBattle",location:"Centrio Mall Atrium",format:"Beyblade X",prize:"National Qualification",color:"#ff2d55"},
-  {day:"15",month:"Feb",name:"Manila BeyLeague Season 3 Kickoff",type:"launch",community:"Manila BeyLeague",location:"SM Mall of Asia Arena Grounds",format:"League Format",prize:"₱15,000 Prize Pool",color:"#00e676"},
-  {day:"22",month:"Feb",name:"Davao Spin Open Vol. 3",type:"tournament",community:"Davao Spin District",location:"Abreeza Ayala Mall Event Space",format:"Mixed Format",prize:"₱4,000 + Merch",color:"#bd5cff"},
-];
+// ── DATA — loaded from Firestore ──
+let communities = [];
+let events = [];
 const buildColors = {
   attack:{bg:"rgba(255,45,85,.07)",accent:"#ff2d55"},
   defense:{bg:"rgba(0,207,255,.07)",accent:"#00cfff"},
@@ -1753,29 +1739,88 @@ Object.assign(window, {
   renderProfileContent, saveProfile, handleAvatarChange
 });
 
+// ── LOAD COMMUNITIES FROM FIRESTORE ──
+async function loadCommunities() {
+  try {
+    const snap = await getDocs(collection(db,'communities'));
+    if (!snap.empty) {
+      communities = snap.docs.map(d => ({id:d.id, type:'Community', active:true, ...d.data()}));
+    } else {
+      // fallback seed data if Firestore empty
+      communities = [
+        {name:"Beyblade RXS",location:"Roxas City, Capiz",desc:"The original Roxas City Beyblade community. Active tournaments and weekly casuals.",members:60,type:"Community",color:"#ff5c00",active:true},
+        {name:"Iloilo Bladers PH",location:"Iloilo City, Iloilo",desc:"Western Visayas' largest Beyblade hub. Multi-format events and open tournaments.",members:120,type:"Community",color:"#00cfff",active:true},
+        {name:"Bacolod Spinners",location:"Bacolod City, Negros Occ.",desc:"Competitive scene from the City of Smiles. Known for attack-type specialists.",members:48,type:"Community",color:"#ffb800",active:true},
+        {name:"CDO BeyBattle",location:"Cagayan de Oro, Misamis Or.",desc:"Mindanao's go-to beyblade community. Regional events and national qualifiers.",members:85,type:"Community",color:"#ff2d55",active:true},
+        {name:"Manila BeyLeague",location:"Metro Manila, NCR",desc:"Capital region hub hosting major national tournaments and league play.",members:230,type:"Community",color:"#00e676",active:true},
+        {name:"Davao Spin District",location:"Davao City, Davao del Sur",desc:"Mindanao's southern community pushing the Beyblade X format hard.",members:67,type:"Community",color:"#bd5cff",active:true},
+      ];
+    }
+  } catch(e) { console.warn('Communities load error:', e); }
+  renderCommunities();
+}
+
+// ── LOAD EVENTS FROM FIRESTORE ──
+async function loadEvents() {
+  try {
+    const snap = await getDocs(collection(db,'events'));
+    if (!snap.empty) {
+      events = snap.docs.map(d => {
+        const ev = d.data();
+        const typeColors = {tournament:'#ff5c00', casual:'#00cfff', launch:'#ffb800'};
+        return {id:d.id, color: typeColors[ev.type]||'#ff5c00', ...ev};
+      });
+    } else {
+      events = [
+        {day:"18",month:"Jan",name:"BeyBattle Open 2025 Roxas",type:"tournament",community:"Beyblade RXS",location:"Roxas City Sports Complex",format:"Beyblade X",prize:"₱3,000 + Trophy",color:"#ff5c00"},
+        {day:"25",month:"Jan",name:"Iloilo Casuals #12",type:"casual",community:"Iloilo Bladers PH",location:"SM City Iloilo Event Area",format:"Open Format",prize:"Prizes TBA",color:"#00cfff"},
+        {day:"01",month:"Feb",name:"Bacolod City Championship",type:"tournament",community:"Bacolod Spinners",location:"Lacson Street Venue",format:"Beyblade X",prize:"₱5,000 + Trophies",color:"#ffb800"},
+        {day:"08",month:"Feb",name:"CDO Regional Qualifier",type:"tournament",community:"CDO BeyBattle",location:"Centrio Mall Atrium",format:"Beyblade X",prize:"National Qualification",color:"#ff2d55"},
+        {day:"15",month:"Feb",name:"Manila BeyLeague Season 3 Kickoff",type:"launch",community:"Manila BeyLeague",location:"SM Mall of Asia Arena Grounds",format:"League Format",prize:"₱15,000 Prize Pool",color:"#00e676"},
+        {day:"22",month:"Feb",name:"Davao Spin Open Vol. 3",type:"tournament",community:"Davao Spin District",location:"Abreeza Ayala Mall Event Space",format:"Mixed Format",prize:"₱4,000 + Merch",color:"#bd5cff"},
+      ];
+    }
+  } catch(e) { console.warn('Events load error:', e); }
+  renderTicker();
+  renderEvents();
+}
+
+// ── LOAD HERO STATS FROM FIRESTORE ──
+async function loadHeroStats() {
+  try {
+    const d = await getDoc(doc(db,'settings','heroStats'));
+    if (d.exists()) {
+      const s = d.data();
+      return { communities: s.communities||6, bladers: s.bladers||610, events: s.events||24, builds: s.builds||187 };
+    }
+  } catch(e) { console.warn('Hero stats load error:', e); }
+  return { communities:6, bladers:610, events:24, builds:187 };
+}
+
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
-  // Modal click-outside to close
   document.getElementById('authModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeAuthModal(); });
   document.getElementById('profileModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeProfileModal(); });
   initAuth();
-  renderCommunities();
-  renderTicker();
-  renderEvents();
+
+  // Load all Firestore data in parallel
+  await Promise.all([loadCommunities(), loadEvents()]);
+
   renderBuilds();
   renderDisc();
-  // Seed Firestore with default data if empty, then listen for live updates
   await seedIfEmpty('builds', seedBuilds);
   await seedIfEmpty('discussions', seedDiscussions);
   listenBuilds();
   listenDiscussions();
-  // counters
-  const obs=new IntersectionObserver(entries=>{
+
+  // Hero stats from Firestore
+  const stats = await loadHeroStats();
+  const obs = new IntersectionObserver(entries => {
     if(entries[0].isIntersecting){
-      animateCounter(document.getElementById('countCommunities'),6);
-      animateCounter(document.getElementById('countBladers'),610);
-      animateCounter(document.getElementById('countEvents'),24);
-      animateCounter(document.getElementById('countBuilds'),187);
+      animateCounter(document.getElementById('countCommunities'), stats.communities);
+      animateCounter(document.getElementById('countBladers'), stats.bladers);
+      animateCounter(document.getElementById('countEvents'), stats.events);
+      animateCounter(document.getElementById('countBuilds'), stats.builds);
       obs.disconnect();
     }
   },{threshold:.5});
