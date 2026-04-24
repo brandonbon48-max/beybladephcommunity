@@ -319,12 +319,20 @@ body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-se
       <div class="form-group"><label class="form-label">Members</label><input type="number" class="form-input" id="comm-members" placeholder="50"></div>
     </div>
     <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="comm-desc" placeholder="What makes this community special?"></textarea></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Latitude</label><input type="number" step="any" class="form-input" id="comm-lat" placeholder="10.7202"></div>
-      <div class="form-group"><label class="form-label">Longitude</label><input type="number" step="any" class="form-input" id="comm-lng" placeholder="122.5621"></div>
+    <div class="form-group">
+      <label class="form-label">📍 Map Location</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="form-input" id="comm-location-input" placeholder="Paste Google Maps link or type a place name…" style="flex:1;" oninput="onCommLocationInput(this.value)">
+        <button type="button" onclick="resolveCommLocation()" style="flex-shrink:0;background:var(--accent);border:none;color:#fff;border-radius:7px;padding:0 16px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background .2s;" onmouseover="this.style.background='#ff6e1a'" onmouseout="this.style.background='var(--accent)'">Look Up</button>
+      </div>
+      <div id="comm-location-status" style="font-size:11px;margin-top:6px;min-height:16px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;"></div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <input type="number" step="any" class="form-input" id="comm-lat" placeholder="Lat (auto-filled)" style="flex:1;font-size:12px;color:var(--muted);" readonly>
+        <input type="number" step="any" class="form-input" id="comm-lng" placeholder="Lng (auto-filled)" style="flex:1;font-size:12px;color:var(--muted);" readonly>
+      </div>
     </div>
     <div class="form-group"><label class="form-label">Accent Color</label><input type="color" class="form-input" id="comm-color" value="#ff5c00" style="height:44px;padding:4px 8px;cursor:pointer;"></div>
-    <div class="form-group"><label class="form-label">Google Maps URL</label><input type="url" class="form-input" id="comm-gmaps" placeholder="https://maps.google.com/..."></div>
+    <div class="form-group"><label class="form-label">Google Maps URL <span style="color:var(--muted);font-size:9px;">(auto-filled if you pasted a Maps link above)</span></label><input type="url" class="form-input" id="comm-gmaps" placeholder="https://maps.google.com/..."></div>
     <div class="form-group"><label class="form-label">Facebook / Social Link</label><input type="url" class="form-input" id="comm-social" placeholder="https://facebook.com/..."></div>
     <button class="form-save" onclick="saveCommunity()">💾 Save Community</button>
   </div>
@@ -356,11 +364,19 @@ body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-se
       <div class="form-group"><label class="form-label">Format</label><input type="text" class="form-input" id="evt-format" placeholder="Beyblade X"></div>
       <div class="form-group"><label class="form-label">Prize</label><input type="text" class="form-input" id="evt-prize" placeholder="₱3,000 + Trophy"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Latitude</label><input type="number" step="any" class="form-input" id="evt-lat" placeholder="10.7150"></div>
-      <div class="form-group"><label class="form-label">Longitude</label><input type="number" step="any" class="form-input" id="evt-lng" placeholder="122.5490"></div>
+    <div class="form-group">
+      <label class="form-label">📍 Map Location</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" class="form-input" id="evt-location-input" placeholder="Paste Google Maps link or type a venue name…" style="flex:1;" oninput="onEvtLocationInput(this.value)">
+        <button type="button" onclick="resolveEvtLocation()" style="flex-shrink:0;background:var(--accent);border:none;color:#fff;border-radius:7px;padding:0 16px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background .2s;" onmouseover="this.style.background='#ff6e1a'" onmouseout="this.style.background='var(--accent)'">Look Up</button>
+      </div>
+      <div id="evt-location-status" style="font-size:11px;margin-top:6px;min-height:16px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;"></div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <input type="number" step="any" class="form-input" id="evt-lat" placeholder="Lat (auto-filled)" style="flex:1;font-size:12px;color:var(--muted);" readonly>
+        <input type="number" step="any" class="form-input" id="evt-lng" placeholder="Lng (auto-filled)" style="flex:1;font-size:12px;color:var(--muted);" readonly>
+      </div>
     </div>
-    <div class="form-group"><label class="form-label">Google Maps URL</label><input type="url" class="form-input" id="evt-gmaps" placeholder="https://maps.google.com/..."></div>
+    <div class="form-group"><label class="form-label">Google Maps URL <span style="color:var(--muted);font-size:9px;">(auto-filled if you pasted a Maps link above)</span></label><input type="url" class="form-input" id="evt-gmaps" placeholder="https://maps.google.com/..."></div>
     <button class="form-save" onclick="saveEvent()">💾 Save Event</button>
   </div>
 </div>
@@ -509,6 +525,14 @@ function clearForm(type) {
   const fields = document.querySelectorAll(`#modal-${type} input, #modal-${type} textarea, #modal-${type} select`);
   fields.forEach(f => { if(f.type !== 'hidden' && f.type !== 'color') f.value = ''; });
   document.getElementById(`${type.substring(0,4)}-edit-id`) && (document.getElementById(`${type.substring(0,4)}-edit-id`).value = '');
+  // Clear smart location fields
+  const prefix = type === 'community' ? 'comm' : type === 'event' ? 'evt' : null;
+  if (prefix) {
+    const inp = document.getElementById(prefix + '-location-input');
+    const st  = document.getElementById(prefix + '-location-status');
+    if (inp) inp.value = '';
+    if (st)  { st.textContent = ''; st.style.color = ''; }
+  }
 }
 
 // ── LOAD ALL ──
@@ -568,6 +592,11 @@ window.editCommunity = async (id) => {
   document.getElementById('comm-color').value = c.color||'#ff5c00';
   document.getElementById('comm-gmaps').value = c.gmaps||'';
   document.getElementById('comm-social').value = c.social||'';
+  // pre-fill location input for editing
+  document.getElementById('comm-location-input').value = c.gmaps||c.location||'';
+  const cs = document.getElementById('comm-location-status');
+  if (c.lat && c.lng) { cs.style.color='var(--green)'; cs.textContent=`✅ Coordinates loaded (${parseFloat(c.lat).toFixed(4)}, ${parseFloat(c.lng).toFixed(4)})`; }
+  else cs.textContent='';
   document.getElementById('comm-modal-title').innerHTML = 'Edit <span>Community</span>';
   openModal('community', true);
 };
@@ -649,6 +678,11 @@ window.editEvent = async (id) => {
   document.getElementById('evt-lat').value = e.lat||'';
   document.getElementById('evt-lng').value = e.lng||'';
   document.getElementById('evt-gmaps').value = e.gmaps||'';
+  // pre-fill location input for editing
+  document.getElementById('evt-location-input').value = e.gmaps||e.location||'';
+  const es = document.getElementById('evt-location-status');
+  if (e.lat && e.lng) { es.style.color='var(--green)'; es.textContent=`✅ Coordinates loaded (${parseFloat(e.lat).toFixed(4)}, ${parseFloat(e.lng).toFixed(4)})`; }
+  else es.textContent='';
   document.getElementById('evt-modal-title').innerHTML = 'Edit <span>Event</span>';
   openModal('event', true);
 };
@@ -867,6 +901,146 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     if (e.target === overlay) overlay.classList.remove('open');
   });
 });
+
+// ══════════════════════ LOCATION RESOLVER ══════════════════════
+// Extracts lat/lng from a Google Maps URL, or geocodes a place name via Nominatim.
+
+function setLocationStatus(elId, msg, type) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const colors = { ok: 'var(--green)', error: 'var(--red)', loading: 'var(--accent2)' };
+  const icons  = { ok: '✅', error: '❌', loading: '⏳' };
+  el.style.color = colors[type] || 'var(--muted)';
+  el.textContent = (icons[type] || '') + ' ' + msg;
+}
+
+function tryExtractCoordsFromUrl(url) {
+  // Format: @lat,lng or /place/.../lat,lng or ?q=lat,lng or ll=lat,lng
+  const patterns = [
+    /@(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /\/(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/,
+  ];
+  for (const re of patterns) {
+    const m = url.match(re);
+    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  }
+  return null;
+}
+
+async function geocodePlaceName(name) {
+  const q = encodeURIComponent(name + ', Philippines');
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${q}`, {
+    headers: { 'Accept-Language': 'en', 'User-Agent': 'XtremeUnityAdmin/1.0' }
+  });
+  const data = await res.json();
+  if (data && data.length > 0) {
+    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), display: data[0].display_name };
+  }
+  return null;
+}
+
+function fillCoords(prefix, lat, lng) {
+  document.getElementById(prefix + '-lat').value = lat.toFixed(6);
+  document.getElementById(prefix + '-lng').value = lng.toFixed(6);
+}
+
+// When user types/pastes in the location input, try to auto-detect a URL instantly
+function onCommLocationInput(val) {
+  if (val.includes('maps.google') || val.includes('goo.gl/maps') || val.includes('maps.app.goo')) {
+    const coords = tryExtractCoordsFromUrl(val);
+    if (coords) {
+      fillCoords('comm', coords.lat, coords.lng);
+      document.getElementById('comm-gmaps').value = val;
+      setLocationStatus('comm-location-status', `Coordinates extracted! (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, 'ok');
+    }
+  } else {
+    document.getElementById('comm-location-status').textContent = '';
+  }
+}
+
+function onEvtLocationInput(val) {
+  if (val.includes('maps.google') || val.includes('goo.gl/maps') || val.includes('maps.app.goo')) {
+    const coords = tryExtractCoordsFromUrl(val);
+    if (coords) {
+      fillCoords('evt', coords.lat, coords.lng);
+      document.getElementById('evt-gmaps').value = val;
+      setLocationStatus('evt-location-status', `Coordinates extracted! (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, 'ok');
+    }
+  } else {
+    document.getElementById('evt-location-status').textContent = '';
+  }
+}
+
+// "Look Up" button handler for communities
+window.resolveCommLocation = async () => {
+  const val = document.getElementById('comm-location-input').value.trim();
+  if (!val) { setLocationStatus('comm-location-status', 'Enter a place name or paste a Maps link.', 'error'); return; }
+
+  // Try URL first
+  if (val.startsWith('http')) {
+    const coords = tryExtractCoordsFromUrl(val);
+    if (coords) {
+      fillCoords('comm', coords.lat, coords.lng);
+      document.getElementById('comm-gmaps').value = val;
+      setLocationStatus('comm-location-status', `Found! (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, 'ok');
+      return;
+    }
+    // URL but no coords embedded — fall through to geocoder
+  }
+
+  // Geocode as place name
+  setLocationStatus('comm-location-status', 'Looking up…', 'loading');
+  try {
+    const result = await geocodePlaceName(val);
+    if (result) {
+      fillCoords('comm', result.lat, result.lng);
+      // Build a search URL from the place name
+      if (!document.getElementById('comm-gmaps').value) {
+        document.getElementById('comm-gmaps').value = `https://www.google.com/maps/search/${encodeURIComponent(val)}`;
+      }
+      setLocationStatus('comm-location-status', `Found: ${result.display.split(',').slice(0,3).join(',')}`, 'ok');
+    } else {
+      setLocationStatus('comm-location-status', 'Place not found. Try a more specific name.', 'error');
+    }
+  } catch(e) {
+    setLocationStatus('comm-location-status', 'Lookup failed. Check your connection.', 'error');
+  }
+};
+
+// "Look Up" button handler for events
+window.resolveEvtLocation = async () => {
+  const val = document.getElementById('evt-location-input').value.trim();
+  if (!val) { setLocationStatus('evt-location-status', 'Enter a venue name or paste a Maps link.', 'error'); return; }
+
+  if (val.startsWith('http')) {
+    const coords = tryExtractCoordsFromUrl(val);
+    if (coords) {
+      fillCoords('evt', coords.lat, coords.lng);
+      document.getElementById('evt-gmaps').value = val;
+      setLocationStatus('evt-location-status', `Found! (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, 'ok');
+      return;
+    }
+  }
+
+  setLocationStatus('evt-location-status', 'Looking up…', 'loading');
+  try {
+    const result = await geocodePlaceName(val);
+    if (result) {
+      fillCoords('evt', result.lat, result.lng);
+      if (!document.getElementById('evt-gmaps').value) {
+        document.getElementById('evt-gmaps').value = `https://www.google.com/maps/search/${encodeURIComponent(val)}`;
+      }
+      setLocationStatus('evt-location-status', `Found: ${result.display.split(',').slice(0,3).join(',')}`, 'ok');
+    } else {
+      setLocationStatus('evt-location-status', 'Place not found. Try a more specific name.', 'error');
+    }
+  } catch(e) {
+    setLocationStatus('evt-location-status', 'Lookup failed. Check your connection.', 'error');
+  }
+};
 
 </script>
 </body>
