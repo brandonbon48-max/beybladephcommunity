@@ -40,9 +40,9 @@ body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-se
 .login-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); font-family: 'Barlow Condensed', sans-serif; margin-bottom: 6px; }
 .login-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Barlow', sans-serif; font-size: 14px; padding: 11px 14px; outline: none; transition: border-color .2s; margin-bottom: 16px; }
 .login-input:focus { border-color: var(--accent); }
-.login-btn { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 13px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; transition: background .2s; margin-top: 4px; }
-.login-btn:hover { background: #ff6e1a; }
 .login-error { background: rgba(255,45,85,.08); border: 1px solid rgba(255,45,85,.25); color: var(--red); border-radius: 6px; padding: 9px 13px; font-size: 13px; margin-bottom: 14px; display: none; }
+.google-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; background: #fff; color: #1a1a1a; border: none; border-radius: 10px; padding: 14px; cursor: pointer; font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 15px; transition: background .2s, transform .15s; }
+.google-btn:hover { background: #f0f0f0; transform: translateY(-1px); }
 
 /* ── ADMIN SHELL ── */
 #adminShell { display: none; min-height: 100vh; }
@@ -178,11 +178,16 @@ body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-se
     <div class="login-logo">XTREME <span>UNITY</span></div>
     <div class="login-sub">Admin Panel</div>
     <div class="login-error" id="loginError"></div>
-    <label class="login-label">Email</label>
-    <input type="email" class="login-input" id="loginEmail" placeholder="admin@example.com" value="xtremeunity0@gmail.com">
-    <label class="login-label">Password</label>
-    <input type="password" class="login-input" id="loginPass" placeholder="••••••••">
-    <button class="login-btn" onclick="doLogin()">Sign In →</button>
+    <button class="google-btn" onclick="doGoogleLogin()">
+      <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;flex-shrink:0;">
+        <path fill="#4285F4" d="M46.145 24.503c0-1.6-.144-3.138-.413-4.617H24v8.738h12.445c-.537 2.908-2.17 5.373-4.62 7.027v5.838h7.477c4.374-4.029 6.843-9.967 6.843-16.986z"/>
+        <path fill="#34A853" d="M24 47c6.237 0 11.468-2.068 15.291-5.611l-7.477-5.838c-2.069 1.387-4.716 2.206-7.814 2.206-6.012 0-11.101-4.06-12.922-9.516H3.435v6.033C7.238 41.912 15.016 47 24 47z"/>
+        <path fill="#FBBC05" d="M11.078 28.241A13.96 13.96 0 0 1 10.5 24c0-1.474.253-2.907.578-4.241v-6.033H3.435A22.978 22.978 0 0 0 1 24c0 3.712.888 7.228 2.435 10.274l7.643-6.033z"/>
+        <path fill="#EA4335" d="M24 10.243c3.387 0 6.426 1.164 8.818 3.45l6.613-6.613C35.462 3.443 30.231 1 24 1 15.016 1 7.238 6.088 3.435 13.726l7.643 6.033C12.899 14.303 17.988 10.243 24 10.243z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:16px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;">Only authorized accounts can access this panel.</p>
   </div>
 </div>
 
@@ -421,7 +426,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-se
 <!-- ══ FIREBASE ══ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -439,15 +444,21 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ── AUTH ──
-window.doLogin = async () => {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass  = document.getElementById('loginPass').value;
-  const err   = document.getElementById('loginError');
+const ALLOWED_EMAIL = 'brandonbon48@gmail.com';
+
+window.doGoogleLogin = async () => {
+  const err = document.getElementById('loginError');
   err.style.display = 'none';
   try {
-    await signInWithEmailAndPassword(auth, email, pass);
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    if (result.user.email !== ALLOWED_EMAIL) {
+      await signOut(auth);
+      err.textContent = '⛔ Access denied. This panel is restricted to the site admin only.';
+      err.style.display = 'block';
+    }
   } catch(e) {
-    err.textContent = 'Invalid email or password.';
+    err.textContent = 'Sign-in failed. Please try again.';
     err.style.display = 'block';
   }
 };
@@ -456,15 +467,11 @@ window.doLogout = async () => {
   await signOut(auth);
 };
 
-document.getElementById('loginPass').addEventListener('keydown', e => {
-  if (e.key === 'Enter') window.doLogin();
-});
-
 onAuthStateChanged(auth, user => {
-  if (user) {
+  if (user && user.email === ALLOWED_EMAIL) {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminShell').style.display = 'block';
-    document.getElementById('adminUserInfo').textContent = user.email;
+    document.getElementById('adminUserInfo').textContent = user.displayName || user.email;
     loadAll();
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
