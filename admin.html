@@ -444,7 +444,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ── AUTH ──
-const ALLOWED_EMAIL = 'brandonbon48@gmail.com';
+const ALLOWED_EMAILS = ['brandonbon48@gmail.com', 'xtremeunity0@gmail.com'];
 
 window.doGoogleLogin = async () => {
   const err = document.getElementById('loginError');
@@ -452,7 +452,7 @@ window.doGoogleLogin = async () => {
   try {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
-    if (result.user.email !== ALLOWED_EMAIL) {
+    if (!ALLOWED_EMAILS.includes(result.user.email)) {
       await signOut(auth);
       err.textContent = '⛔ Access denied. This panel is restricted to the site admin only.';
       err.style.display = 'block';
@@ -468,7 +468,7 @@ window.doLogout = async () => {
 };
 
 onAuthStateChanged(auth, user => {
-  if (user && user.email === ALLOWED_EMAIL) {
+  if (user && ALLOWED_EMAILS.includes(user.email)) {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminShell').style.display = 'block';
     document.getElementById('adminUserInfo').textContent = user.displayName || user.email;
