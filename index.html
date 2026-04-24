@@ -971,6 +971,14 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
   </div>
 </div>
 
+<!-- Profile Modal -->
+<div class="auth-overlay" id="profileModal">
+  <div class="auth-modal" style="max-width:480px;max-height:80vh;overflow-y:auto;">
+    <button class="auth-close" onclick="closeProfileModal()">✕</button>
+    <div id="profileContent"></div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast">✓ <span id="toastMsg"></span></div>
 
@@ -1009,9 +1017,9 @@ function renderNav() {
       <span class="nav-username">${currentUser.displayName}</span>
       <span style="color:var(--muted);font-size:10px;">▾</span>
       <div class="nav-dropdown" id="navDropdown">
-        <a href="#">My Profile</a>
-        <a href="#builds">My Builds</a>
-        <a href="#discussions">My Threads</a>
+        <a onclick="window.openProfileModal()">My Profile</a>
+        <a onclick="window.viewMyBuilds()">My Builds</a>
+        <a onclick="window.viewMyThreads()">My Threads</a>
         <button class="logout-btn" onclick="window.logout(event)">Log Out</button>
       </div>
     </div>`;
@@ -1093,6 +1101,113 @@ function initAuth() {}
 function skipPhone() {}
 function sendPhoneOTP() {}
 function verifyOTP() {}
+
+// ── PROFILE ──
+function openProfileModal() {
+  if(!currentUser) return;
+  const avatar = currentUser.photoURL
+    ? `<img src="${currentUser.photoURL}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);">`
+    : `<div style="width:72px;height:72px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;">${(currentUser.displayName||'B').slice(0,2).toUpperCase()}</div>`;
+  const myBuilds = builds.filter(b=>b.authorUid===currentUser.uid);
+  const myThreads = discussions.filter(d=>d.authorUid===currentUser.uid);
+  const totalVotes = myBuilds.reduce((s,b)=>s+b.votes,0);
+  document.getElementById('profileContent').innerHTML = `
+    <div style="text-align:center;padding:10px 0 24px;">
+      <div style="display:flex;justify-content:center;margin-bottom:14px;">${avatar}</div>
+      <div style="font-family:'Black Ops One',sans-serif;font-size:22px;color:#fff;margin-bottom:4px;">${currentUser.displayName}</div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:20px;">${currentUser.email}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">
+        <div style="background:var(--surface);border-radius:10px;padding:14px 8px;">
+          <div style="font-size:22px;font-weight:900;color:var(--accent);">${myBuilds.length}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Builds</div>
+        </div>
+        <div style="background:var(--surface);border-radius:10px;padding:14px 8px;">
+          <div style="font-size:22px;font-weight:900;color:var(--accent2);">${myThreads.length}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Threads</div>
+        </div>
+        <div style="background:var(--surface);border-radius:10px;padding:14px 8px;">
+          <div style="font-size:22px;font-weight:900;color:var(--accent3);">${totalVotes}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Total Votes</div>
+        </div>
+      </div>
+      ${myBuilds.length>0?`
+      <div style="text-align:left;margin-bottom:20px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;">MY BUILDS</div>
+        ${myBuilds.map(b=>`
+          <div style="background:var(--surface);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-weight:700;color:#fff;font-size:14px;">${b.name}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">${b.blade} · ${b.ratchet} · ${b.bit}</div>
+            </div>
+            <span style="color:var(--accent);font-weight:700;font-size:13px;">▲ ${b.votes}</span>
+          </div>`).join('')}
+      </div>`:''}
+      ${myThreads.length>0?`
+      <div style="text-align:left;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:10px;">MY THREADS</div>
+        ${myThreads.map(d=>`
+          <div style="background:var(--surface);border-radius:8px;padding:12px 14px;margin-bottom:8px;">
+            <div style="font-weight:700;color:#fff;font-size:14px;">${d.title}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">${d.time||'Recently'} · ${d.replies} replies</div>
+          </div>`).join('')}
+      </div>`:''}
+      ${myBuilds.length===0&&myThreads.length===0?`<p style="color:var(--muted);font-size:13px;">No builds or threads yet. Start contributing! 🔥</p>`:''}
+    </div>`;
+  document.getElementById('profileModal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeProfileModal() {
+  document.getElementById('profileModal').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function viewMyBuilds() {
+  closeProfileModal();
+  document.querySelector('#builds').scrollIntoView({behavior:'smooth'});
+  // highlight user's builds
+  document.querySelectorAll('#builds .tab-btn').forEach(b=>b.classList.remove('active'));
+  buildFilter='all';
+  setTimeout(()=>{
+    const grid = document.getElementById('buildsGrid');
+    const myBuilds = builds.filter(b=>b.authorUid===currentUser?.uid);
+    if(myBuilds.length===0){showToast("You haven't posted any builds yet!");return;}
+    grid.innerHTML = myBuilds.map(b=>{
+      const bc=buildColors[b.type];
+      return `<div class="build-card" style="border-color:var(--accent);">
+        <div class="build-vis" style="background:${bc.bg}">
+          <div style="position:absolute;inset:0;background:radial-gradient(circle,${bc.accent}18,transparent 70%)"></div>
+          <div class="build-parts" style="color:${bc.accent}"><div>${b.blade}</div><div style="color:rgba(255,255,255,.3);font-size:8px">───</div><div>${b.ratchet}</div><div style="color:rgba(255,255,255,.3);font-size:8px">───</div><div>${b.bit}</div></div>
+        </div>
+        <div class="build-body">
+          <div class="build-name">${b.name}</div>
+          <div class="build-author" style="color:var(--accent);">✓ Your Build</div>
+          <div class="build-type-pills"><span class="pill pill-${b.type}">${b.type}</span></div>
+          <div class="build-vote"><div class="vote-btns"><button class="vote-btn voted">▲ ${b.votes}</button></div><div class="vote-score">${b.votes}</div></div>
+        </div>
+      </div>`;
+    }).join('');
+    showToast(`Showing your ${myBuilds.length} build(s) 🔥`);
+  }, 600);
+}
+
+function viewMyThreads() {
+  closeProfileModal();
+  document.querySelector('#discussions').scrollIntoView({behavior:'smooth'});
+  setTimeout(()=>{
+    const myThreads = discussions.filter(d=>d.authorUid===currentUser?.uid);
+    if(myThreads.length===0){showToast("You haven't started any threads yet!");return;}
+    document.getElementById('discList').innerHTML = myThreads.map(d=>`
+      <div class="thread-card" style="border-left:3px solid var(--accent);">
+        <div>
+          <div class="thread-cat" style="color:var(--accent);">✓ Your Thread · ${catLabel[d.cat]||d.cat}</div>
+          <div class="thread-title">${d.title}</div>
+          <div class="thread-meta"><span>🕐 ${d.time||'Recently'}</span><span>👁 ${d.views}</span></div>
+        </div>
+        <div class="thread-stats"><div class="thread-replies">${d.replies}</div><div class="thread-replies-label">Replies</div></div>
+      </div>`).join('');
+    showToast(`Showing your ${myThreads.length} thread(s) 💬`);
+  }, 600);
+}
 
 
 // ── DATA ──
@@ -1297,7 +1412,8 @@ async function submitBuild() {
     ratchet:document.getElementById('b-ratchet').value.trim()||'—',
     bit:document.getElementById('b-bit').value.trim()||'—',
     type:document.getElementById('b-type').value,
-    author:currentUser.displayName||currentUser.username,
+    author:currentUser.displayName,
+    authorUid: currentUser.uid,
     votes:0, notes:document.getElementById('b-notes').value.trim(),
     createdAt: serverTimestamp()
   };
@@ -1313,7 +1429,8 @@ async function submitDisc() {
   if(!title){showToast("Please enter a thread title!");return;}
   const thread = {
     title, cat:document.getElementById('d-cat').value,
-    author:currentUser.displayName||currentUser.username,
+    author:currentUser.displayName,
+    authorUid: currentUser.uid,
     community:'Xtreme Unity Member',
     replies:0, views:1, pinned:false,
     createdAt: serverTimestamp()
@@ -1423,13 +1540,15 @@ Object.assign(window, {
   toggleNav, openAuthModal, closeAuthModal, switchAuthTab, handleAuthSubmit, googleSignIn, logout,
   authGatedAction, toggleUserMenu, filterEvents, filterBuilds, filterDisc,
   vote, openBuildModal, closeBuildModal, openDiscModal, closeDiscModal,
-  submitBuild, submitDisc, submitApp, sendPhoneOTP, verifyOTP, skipPhone
+  submitBuild, submitDisc, submitApp, sendPhoneOTP, verifyOTP, skipPhone,
+  openProfileModal, closeProfileModal, viewMyBuilds, viewMyThreads
 });
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
   // Modal click-outside to close
   document.getElementById('authModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeAuthModal(); });
+  document.getElementById('profileModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeProfileModal(); });
   initAuth();
   renderCommunities();
   renderTicker();
