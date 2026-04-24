@@ -867,8 +867,6 @@ footer { background: var(--surface); border-top: 1px solid var(--border); paddin
     <div class="tab-bar">
       <button class="tab-btn active" onclick="filterEvents('all',this)">All Events</button>
       <button class="tab-btn" onclick="filterEvents('tournament',this)">Tournaments</button>
-      <button class="tab-btn" onclick="filterEvents('casual',this)">Casuals</button>
-      <button class="tab-btn" onclick="filterEvents('launch',this)">Launch Events</button>
     </div>
     <div class="events-grid" id="eventsGrid"></div>
   </div>
@@ -1467,6 +1465,7 @@ function renderEvents() {
   const filtered = eventFilter==='all'?events:events.filter(e=>e.type===eventFilter);
   const tl={tournament:'🏆 Tournament',casual:'🎮 Casual',launch:'🚀 Launch Event'};
   const tc={tournament:'badge-red',casual:'badge-blue',launch:'badge-yellow'};
+  if(filtered.length===0){document.getElementById('eventsGrid').innerHTML='<p style="color:var(--muted);text-align:center;padding:60px 0;grid-column:1/-1;font-family:Barlow Condensed,sans-serif;letter-spacing:2px;font-size:14px;">📅 No events yet — check back soon!</p>';return;}
   document.getElementById('eventsGrid').innerHTML = filtered.map(e=>{
     // Use gmaps from Firestore first, fall back to generated search URL
     const gmaps = e.gmaps || `https://www.google.com/maps/search/${encodeURIComponent((e.location||e.name)+' Philippines')}`;
@@ -1776,14 +1775,7 @@ async function loadEvents() {
         return {id:d.id, color: typeColors[ev.type]||'#ff5c00', ...ev};
       });
     } else {
-      events = [
-        {day:"18",month:"Jan",name:"BeyBattle Open 2025 Roxas",type:"tournament",community:"Beyblade RXS",location:"Roxas City Sports Complex",format:"Beyblade X",prize:"₱3,000 + Trophy",color:"#ff5c00"},
-        {day:"25",month:"Jan",name:"Iloilo Casuals #12",type:"casual",community:"Iloilo Bladers PH",location:"SM City Iloilo Event Area",format:"Open Format",prize:"Prizes TBA",color:"#00cfff"},
-        {day:"01",month:"Feb",name:"Bacolod City Championship",type:"tournament",community:"Bacolod Spinners",location:"Lacson Street Venue",format:"Beyblade X",prize:"₱5,000 + Trophies",color:"#ffb800"},
-        {day:"08",month:"Feb",name:"CDO Regional Qualifier",type:"tournament",community:"CDO BeyBattle",location:"Centrio Mall Atrium",format:"Beyblade X",prize:"National Qualification",color:"#ff2d55"},
-        {day:"15",month:"Feb",name:"Manila BeyLeague Season 3 Kickoff",type:"launch",community:"Manila BeyLeague",location:"SM Mall of Asia Arena Grounds",format:"League Format",prize:"₱15,000 Prize Pool",color:"#00e676"},
-        {day:"22",month:"Feb",name:"Davao Spin Open Vol. 3",type:"tournament",community:"Davao Spin District",location:"Abreeza Ayala Mall Event Space",format:"Mixed Format",prize:"₱4,000 + Merch",color:"#bd5cff"},
-      ];
+      events = [];
     }
   } catch(e) { console.warn('Events load error:', e); }
   renderTicker();
